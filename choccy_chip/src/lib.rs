@@ -4,8 +4,8 @@
 
 /// prelude
 pub mod prelude;
-/// CPU
-pub mod cpu;
+/// Emulator API
+pub mod emulator;
 // /// Graphics API
 // pub mod graphics;
 // /// Input API
