@@ -1,6 +1,8 @@
-[package]
-name = "choccy"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
+[workspace]
+members = [
+    "choccy_chip" # <- this is the library
+    # "choccy_wasm",
+    # "choccy_gui",
+    # "choccy_cli",
+]
+resolver = "2"
