@@ -67,3 +67,4 @@ mod tests {
         assert_eq!(general_registers.v, [0; 16]);
     }
 }
+
