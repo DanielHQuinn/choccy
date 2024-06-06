@@ -1,14 +1,18 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+#![warn(missing_docs, missing_debug_implementations, rust_2018_idioms)]
+#![warn(clippy::pedantic)]
+//! Choccy Chip is a CHIP-8 emulator written in Rust.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+/// prelude
+pub mod prelude;
+/// CPU
+pub mod cpu;
+// /// Graphics API
+// pub mod graphics;
+// /// Input API
+// pub mod input;
+// /// Audio API
+// consider making this a feature
+// pub mod audio;
+// /// Debugging API
+// consider making this a feature
+// pub mod debug;
