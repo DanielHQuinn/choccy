@@ -9,7 +9,7 @@ type Register = u8; // a 4 bit register number
 
 /// The `OpCode` enum represents the different opcodes that the CHIP-8 emulator can execute.
 /// There are 35 different opcodes in total.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum OpCode {
     Nop,
     Call(Address),
@@ -77,5 +77,22 @@ impl Emu {
 
     fn handle_bit_op(&self, (register_x, register_y, constant): (Register, Register, Case)) {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic = "assertion `left == right` failed"]
+    fn test_fetch_opcode() {
+        let mut emu = Emu::new();
+        emu.ram[0] = 0x12;
+        emu.ram[1] = 0x34;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::Call(0x234));
     }
 }
