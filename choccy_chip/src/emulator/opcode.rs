@@ -45,13 +45,19 @@ impl From<u16> for OpCode {
 impl Emu {
     #[must_use]
     /// Fetch the value from our game (loaded into RAM) at the memory address stored in our Program Counter.
-    pub(crate) fn fetch_opcode(&self) -> OpCode {
+    pub(crate) fn fetch_opcode(&mut self) -> OpCode {
         let pc = self.psuedo_registers.program_counter as usize;
 
         // An OpCode is 2 bytes long
-        let lower_byte = u16::from(self.ram[pc]);
-        let upper_byte = u16::from(self.ram[pc + 1]);
-        let opcode = (upper_byte << 8) | lower_byte;
+        let higher_byte = u16::from(self.ram[pc]);
+        let lower_byte = u16::from(self.ram[pc + 1]);
+        let opcode = (higher_byte << 8) | lower_byte;
+
+        // increment the program counter by 2
+        // NOTE: should this function just be responsible for fetching the opcode?
+        // i.e., should we have a generic fetch function that increments the program counter too?
+        self.psuedo_registers.program_counter += 2;
+
         OpCode::from(opcode)
     }
 
