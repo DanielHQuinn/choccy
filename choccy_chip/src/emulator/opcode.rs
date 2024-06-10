@@ -33,6 +33,8 @@ impl From<u16> for OpCode {
 
         match digits {
             (0, 0, 0, 0) => OpCode::Nop,
+            (0, 0, 0xE, 0) => OpCode::Display(None),
+            (0, 0, 0xE, 0xE) => OpCode::Return, // technically a flow control instruction
             (0, _, _, _) => OpCode::Call(value & 0x0FFF), // Get rid of the first digit
             (3 | 4, register, _, _) => {
                 let args = (
@@ -50,8 +52,6 @@ impl From<u16> for OpCode {
                 );
                 OpCode::SkipRegisterEquals(args)
             }
-            (0, 0, 0xE, 0) => OpCode::Display(None),
-            (0, 0, 0xE, 0xE) => OpCode::Return, // technically a flow control instruction
             (1 | 2 | 0xB, _, _, _) => {
                 let flow_case = u8::try_from(digits.0).expect("Invalid flow case");
 
