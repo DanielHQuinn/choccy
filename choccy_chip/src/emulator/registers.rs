@@ -29,7 +29,7 @@ pub struct SpecialRegisters {
 /// NOTE: The VF register is used as a flag in some instructions.
 pub struct GeneralRegisters {
     /// The general purpose registers.
-    v: [u8; 16],
+    pub(crate) v: [u8; 16],
 }
 
 #[cfg(test)]
