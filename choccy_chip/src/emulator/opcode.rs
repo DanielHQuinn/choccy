@@ -12,6 +12,8 @@ type Register = u8; // a 4 bit register number
 #[derive(Debug, PartialEq)]
 pub(crate) enum OpCode {
     Nop,
+    SkipEquals((Case, Register, Constant)),
+    SkipRegisterEquals((Case, Register, Register)),
     Display(Option<(Constant, Constant, Constant)>), // Whether to clear or draw
     Return,                                          // NOTE: technically a flow control instruction
     Call(Address),                                   // NOTE: This is deprecated
@@ -34,6 +36,22 @@ impl From<u16> for OpCode {
             (0, 0, 0xE, 0) => OpCode::Display(None),
             (0, 0, 0xE, 0xE) => OpCode::Return, // technically a flow control instruction
             (0, _, _, _) => OpCode::Call(value & 0x0FFF), // Get rid of the first digit
+            (3 | 4, register, _, _) => {
+                let args = (
+                    u8::try_from(digits.0).expect("Invalid case"),
+                    u8::try_from(register).expect("Invalid register number"),
+                    u8::try_from(value & 0x00FF).expect("Invalid constant"),
+                );
+                OpCode::SkipEquals(args)
+            }
+            (5 | 9, register_x, register_y, 0) => {
+                let args = (
+                    u8::try_from(digits.0).expect("Invalid case"),
+                    u8::try_from(register_x).expect("Invalid register number"),
+                    u8::try_from(register_y).expect("Invalid register number"),
+                );
+                OpCode::SkipRegisterEquals(args)
+            }
             (1 | 2 | 0xB, _, _, _) => {
                 let flow_case = u8::try_from(digits.0).expect("Invalid flow case");
 
@@ -88,6 +106,8 @@ impl Emu {
     pub(crate) fn execute_opcode(&mut self, opcode: &OpCode) {
         match opcode {
             OpCode::Nop => {}
+            OpCode::SkipEquals(args) => self.handle_skip_equals(*args),
+            OpCode::SkipRegisterEquals(args) => self.handle_skip_register_equals(*args),
             OpCode::Call(_) => panic!("DEPRECATED!"), // NOTE: deprecated!
             OpCode::Display(_to_draw) => todo!(),
             OpCode::Return => self.handle_return(), // NOTE: technically a flow instruction
@@ -96,6 +116,57 @@ impl Emu {
             OpCode::Unknown => unreachable!(),
         }
     }
+
+    fn handle_bit_op(&self, (register_x, register_y, constant): (Register, Register, Case)) {
+        todo!()
+    }
+
+    /// Handles the `SkipEquals` opcode.
+    /// Check the case and skips based on the value of a register and a constant.
+    /// # Arguments
+    /// - `register`: The register to check.
+    /// - `constant`: The constant to check against.
+    fn handle_skip_equals(&mut self, (case, register, constant): (Case, Register, Constant)) {
+        let register = self.general_registers.v[register as usize];
+        match case {
+            3 => {
+                if register == constant {
+                    self.psuedo_registers.program_counter += 2;
+                }
+            }
+            4 => {
+                if register != constant {
+                    self.psuedo_registers.program_counter += 2;
+                }
+            }
+            _ => unreachable!(),
+        }
+    }   
+
+    /// Handles the `SkipRegisterEquals` opcode.
+    /// Check the case and skips based on the values of two registers.
+    /// # Arguments
+    /// - `register_x`: The first register to check.
+    /// - `register_y`: The second register to check.
+    fn handle_skip_register_equals(&mut self, (case, register_x, register_y): (Case, Register, Register)) {
+        let register_x = self.general_registers.v[register_x as usize];
+        let register_y = self.general_registers.v[register_y as usize];
+        match case {
+            5 => {
+                if register_x == register_y {
+                    self.psuedo_registers.program_counter += 2;
+                }
+            }
+            9 => {
+                if register_x != register_y {
+                    self.psuedo_registers.program_counter += 2;
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
+
 
     /// Handle a return instruction from a subroutine.
     ///
@@ -131,10 +202,6 @@ impl Emu {
             }
             _ => todo!(),
         }
-    }
-
-    fn handle_bit_op(&self, (register_x, register_y, constant): (Register, Register, Case)) {
-        todo!()
     }
 }
 
