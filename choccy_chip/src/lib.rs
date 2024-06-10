@@ -6,8 +6,8 @@
 pub mod prelude;
 /// Emulator API
 pub mod emulator;
-// /// Graphics API
-// pub mod graphics;
+/// Graphics API
+pub mod graphics;
 // /// Input API
 // pub mod input;
 // /// Audio API

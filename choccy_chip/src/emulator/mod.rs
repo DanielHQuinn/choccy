@@ -2,7 +2,7 @@
 //! Here lies the CPU module, which contains the CPU struct and its methods to emulate the CHIP-8 CPU.
 /// The registers module contains the ['registers'] struct and its methods.
 pub mod registers;
-// pub mod opcode;
+pub mod opcode;
 // pub mod instructions;
 
 /// The CHIP-8 CPU has 4096 bytes of memory.
@@ -62,6 +62,89 @@ impl Emu {
             ram: [0; RAM_SIZE],
             stack: [0; STACK_SIZE],
         }
+    }
+
+    fn get_register_val(&self, register: u8) -> u8 {
+        self.general_registers.v[register as usize]
+    }
+
+    fn set_register_val(&mut self, register: u8, val: u8) {
+        self.general_registers.v[register as usize] = val;
+    }
+
+    fn program_counter(&self) -> u16 {
+        self.psuedo_registers.program_counter
+    }
+
+    fn set_program_counter(&mut self, address: u16) {
+        self.psuedo_registers.program_counter = address;
+    }
+
+    /// Returns the current stack pointer.
+    fn stack_pointer(&self) -> u8 {
+        self.psuedo_registers.stack_pointer
+    }
+
+    /// Pushes the val of the address onto the stack.
+    ///
+    /// # Arguments
+    /// * `address`: the address to push onto the stack.
+    pub(crate) fn push_stack(&mut self, address: u16) {
+        let sp = self.stack_pointer();
+        self.stack[sp as usize] = address;
+        self.psuedo_registers.stack_pointer += 1;
+    }
+
+    /// Pops the topmost address from the stack.
+    pub(crate) fn pop_stack(&mut self) -> u16 {
+        self.psuedo_registers.stack_pointer -= 1;
+        let sp = self.stack_pointer();
+        self.stack[sp as usize]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let emu = Emu::new();
+
+        assert_eq!(emu.psuedo_registers.program_counter, Emu::START_ADDRESS);
+        assert_eq!(emu.psuedo_registers.stack_pointer, 0);
+        assert_eq!(emu.special_registers.delay_timer, 0);
+        assert_eq!(emu.special_registers.sound_timer, 0);
+        assert_eq!(emu.i_register, 0);
+        assert_eq!(emu.ram, [0; RAM_SIZE]);
+        assert_eq!(emu.stack, [0; STACK_SIZE]);
+    }
+
+    #[test]
+    fn test_stack_pointer() {
+        let emu = Emu::new();
+
+        assert_eq!(emu.stack_pointer(), 0);
+    }
+
+    #[test]
+    fn test_push_stack() {
+        let mut emu = Emu::new();
+
+        emu.push_stack(0x200);
+
+        assert_eq!(emu.stack_pointer(), 1);
+        assert_eq!(emu.stack[0], 0x200);
+    }
+
+    #[test]
+    fn test_pop_stack() {
+        let mut emu = Emu::new();
+
+        emu.push_stack(0x200); // stack pointer is now 1
+
+        assert_eq!(emu.pop_stack(), 0x200); // stack pointer is now 0
+        assert_eq!(emu.stack_pointer(), 0); // stack pointer is now 0
     }
 }
 

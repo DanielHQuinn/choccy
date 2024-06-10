@@ -16,9 +16,9 @@ pub struct PsuedoRegisters {
 /// `SpecialRegisters` struct contains the delay and sound timers.
 pub struct SpecialRegisters {
     /// The delay timer is used for timing events.
-    delay_timer: u8,
+    pub(crate) delay_timer: u8,
     /// The sound timer is used for sound effects.
-    sound_timer: u8,
+    pub(crate) sound_timer: u8,
 }
 
 #[derive(Debug, Default)]
