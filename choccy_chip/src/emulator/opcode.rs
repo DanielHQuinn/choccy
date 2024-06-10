@@ -3,22 +3,23 @@
 //! Finally, it implments methods for the `OpCode` enum.
 use super::Emu;
 type Address = u16; // an address
-type Constant = u8; // a 8 bit constant
 type Case = u8; // represents a number that can be used in a switch statement
-type Register = u8; // a 4 bit register number
+type Constant = u8; // a 8 bit constant
+type RegisterID = u8; // a 4 bit register number
 
 /// The `OpCode` enum represents the different opcodes that the CHIP-8 emulator can execute.
 /// There are 35 different opcodes in total.
+/// We decided to group them by their 'type'
 #[derive(Debug, PartialEq)]
 pub(crate) enum OpCode {
     Nop,
-    SkipEquals((Case, Register, Constant)),
-    SkipRegisterEquals((Case, Register, Register)),
+    SkipEquals((Case, RegisterID, Constant)),
+    SkipRegisterEquals((Case, RegisterID, RegisterID)),
     Display(Option<(Constant, Constant, Constant)>), // Whether to clear or draw
     Return,                                          // NOTE: technically a flow control instruction
     Call(Address),                                   // NOTE: This is deprecated
     Flow(Case, Address),
-    BitOp((Register, Register, Case)),
+    BitOp((RegisterID, RegisterID, Case)),
     Unknown,
 }
 
@@ -36,6 +37,12 @@ impl From<u16> for OpCode {
             (0, 0, 0xE, 0) => OpCode::Display(None),
             (0, 0, 0xE, 0xE) => OpCode::Return, // technically a flow control instruction
             (0, _, _, _) => OpCode::Call(value & 0x0FFF), // Get rid of the first digit
+            (1 | 2 | 0xB, _, _, _) => {
+                let flow_case = u8::try_from(digits.0).expect("Invalid flow case");
+
+                let address = value & 0x0FFF;
+                OpCode::Flow(flow_case, address)
+            }
             (3 | 4, register, _, _) => {
                 let args = (
                     u8::try_from(digits.0).expect("Invalid case"),
@@ -52,14 +59,6 @@ impl From<u16> for OpCode {
                 );
                 OpCode::SkipRegisterEquals(args)
             }
-            (1 | 2 | 0xB, _, _, _) => {
-                let flow_case = u8::try_from(digits.0).expect("Invalid flow case");
-
-                // let address = (digits.1 << 8) | digits.2 << 4 | digits.3;
-                let address = value & 0x0FFF;
-
-                OpCode::Flow(flow_case, address)
-            }
             (8, register_x, register_y, constant) => {
                 let args = (
                     u8::try_from(register_x).expect("Invalid register number"),
@@ -68,10 +67,10 @@ impl From<u16> for OpCode {
                 );
                 OpCode::BitOp(args)
             }
-            (0xD, x_pos, y_pos, constant) => {
+            (0xD, register_x, register_y, constant) => {
                 let args = (
-                    u8::try_from(x_pos).expect("Invalid register number"),
-                    u8::try_from(y_pos).expect("Invalid register number"),
+                    u8::try_from(register_x).expect("Invalid register number"),
+                    u8::try_from(register_y).expect("Invalid register number"),
                     u8::try_from(constant).expect("Invalid constant"),
                 );
                 OpCode::Display(Some(args))
@@ -106,9 +105,10 @@ impl Emu {
     pub(crate) fn execute_opcode(&mut self, opcode: &OpCode) {
         match opcode {
             OpCode::Nop => {}
-            OpCode::SkipEquals(args) => self.handle_skip_equals(*args),
-            OpCode::SkipRegisterEquals(args) => self.handle_skip_register_equals(*args),
-            OpCode::Call(_) => panic!("DEPRECATED!"), // NOTE: deprecated!
+            OpCode::SkipEquals(args) | OpCode::SkipRegisterEquals(args) => {
+                self.handle_cond(*args);
+            }
+            OpCode::Call(_) => panic!("DEPRECATED!"), // NOTE: deprecated! error handle later on
             OpCode::Display(_to_draw) => todo!(),
             OpCode::Return => self.handle_return(), // NOTE: technically a flow instruction
             OpCode::Flow(case, address) => self.handle_flow(*case, *address),
@@ -117,47 +117,45 @@ impl Emu {
         }
     }
 
-    fn handle_bit_op(&self, (register_x, register_y, constant): (Register, Register, Case)) {
+    fn handle_bit_op(&self, (register_x, register_y, constant): (RegisterID, RegisterID, Case)) {
         todo!()
     }
 
-    /// Handles the `SkipEquals` opcode.
+    /// Handles the `Cond` opcode.
     /// Check the case and skips based on the value of a register and a constant.
     /// # Arguments
     /// - `register`: The register to check.
-    /// - `constant`: The constant to check against.
-    fn handle_skip_equals(&mut self, (case, register, constant): (Case, Register, Constant)) {
-        let register = self.general_registers.v[register as usize];
+    /// - `constant` | `register`: The constant or register to check against.
+    fn handle_cond(&mut self, args: (Case, RegisterID, u8)) {
+        let case = args.0;
+        let register = args.1;
+        let constant = args.2;
+
         match case {
             3 => {
+                let register = self.get_register_val(register);
                 if register == constant {
                     self.psuedo_registers.program_counter += 2;
                 }
             }
             4 => {
+                let register = self.get_register_val(register);
                 if register != constant {
                     self.psuedo_registers.program_counter += 2;
                 }
             }
-            _ => unreachable!(),
-        }
-    }   
-
-    /// Handles the `SkipRegisterEquals` opcode.
-    /// Check the case and skips based on the values of two registers.
-    /// # Arguments
-    /// - `register_x`: The first register to check.
-    /// - `register_y`: The second register to check.
-    fn handle_skip_register_equals(&mut self, (case, register_x, register_y): (Case, Register, Register)) {
-        let register_x = self.general_registers.v[register_x as usize];
-        let register_y = self.general_registers.v[register_y as usize];
-        match case {
             5 => {
+                let register_x = self.get_register_val(register);
+                let register_y = self.get_register_val(constant);
                 if register_x == register_y {
                     self.psuedo_registers.program_counter += 2;
                 }
             }
+
             9 => {
+                let register_x = self.get_register_val(register);
+                let register_y = self.get_register_val(constant);
+
                 if register_x != register_y {
                     self.psuedo_registers.program_counter += 2;
                 }
@@ -165,8 +163,6 @@ impl Emu {
             _ => unreachable!(),
         }
     }
-
-
 
     /// Handle a return instruction from a subroutine.
     ///
@@ -200,7 +196,7 @@ impl Emu {
                 let v0 = u16::from(self.get_register_val(0));
                 self.set_program_counter(address + v0);
             }
-            _ => todo!(),
+            _ => unreachable!(),
         }
     }
 }
@@ -324,5 +320,79 @@ mod tests {
         emu.execute_opcode(&opcode);
 
         assert_eq!(emu.psuedo_registers.program_counter, 0x357);
+    }
+
+    #[test]
+    fn test_opcode_skip_equals() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x12);
+
+        emu.ram[0] = 0x30;
+        emu.ram[1] = 0x12;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::SkipEquals((3, 0, 0x12)));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.psuedo_registers.program_counter, 4);
+    }
+
+    #[test]
+    fn test_opcode_skip_not_equals() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x12);
+
+        emu.ram[0] = 0x40;
+        emu.ram[1] = 0x34;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::SkipEquals((4, 0, 0x34)));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.psuedo_registers.program_counter, 4);
+    }
+
+    #[test]
+    fn test_opcode_skip_register_equals() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x12);
+
+        emu.ram[0] = 0x50;
+        emu.ram[1] = 0x10;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::SkipRegisterEquals((5, 0, 1)));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.psuedo_registers.program_counter, 4);
+    }
+
+    #[test]
+    fn test_opcode_skip_register_not_equals() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+
+        emu.ram[0] = 0x90;
+        emu.ram[1] = 0x10;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::SkipRegisterEquals((9, 0, 1)));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.psuedo_registers.program_counter, 4);
     }
 }

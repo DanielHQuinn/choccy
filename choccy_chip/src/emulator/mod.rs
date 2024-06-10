@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 //! Here lies the CPU module, which contains the CPU struct and its methods to emulate the CHIP-8 CPU.
+pub mod opcode;
 /// The registers module contains the ['registers'] struct and its methods.
 pub mod registers;
-pub mod opcode;
 // pub mod instructions;
 
 /// The CHIP-8 CPU has 4096 bytes of memory.
