@@ -9,7 +9,7 @@ type Register = u8; // a 4 bit register number
 
 /// The `OpCode` enum represents the different opcodes that the CHIP-8 emulator can execute.
 /// There are 35 different opcodes in total.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum OpCode {
     Nop,
     SkipEquals((Case, Register, Constant)),
