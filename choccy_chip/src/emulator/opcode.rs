@@ -167,7 +167,7 @@ impl Emu {
     }
 
 
-}
+
     /// Handle a return instruction from a subroutine.
     ///
     /// The interpreter sets the program counter to the address at the top of the stack, then
