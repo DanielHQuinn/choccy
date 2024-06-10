@@ -64,6 +64,22 @@ impl Emu {
         }
     }
 
+    fn get_register_val(&self, register: u8) -> u8 {
+        self.general_registers.v[register as usize]
+    }
+
+    fn set_register_val(&mut self, register: u8, val: u8) {
+        self.general_registers.v[register as usize] = val;
+    }
+
+    fn program_counter(&self) -> u16 {
+        self.psuedo_registers.program_counter
+    }
+
+    fn set_program_counter(&mut self, address: u16) {
+        self.psuedo_registers.program_counter = address;
+    }
+
     /// Returns the current stack pointer.
     fn stack_pointer(&self) -> u8 {
         self.psuedo_registers.stack_pointer
