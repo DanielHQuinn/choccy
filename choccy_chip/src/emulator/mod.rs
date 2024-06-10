@@ -147,19 +147,3 @@ mod tests {
         assert_eq!(emu.stack_pointer(), 0); // stack pointer is now 0
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_new() {
-        let emu = Emu::new();
-
-        assert_eq!(emu.psuedo_registers.program_counter, Emu::START_ADDRESS);
-        assert_eq!(emu.psuedo_registers.stack_pointer, 0);
-        assert_eq!(emu.i_register, 0);
-        assert_eq!(emu.ram, [0; RAM_SIZE]);
-        assert_eq!(emu.stack, [0; STACK_SIZE]);
-    }
-}
