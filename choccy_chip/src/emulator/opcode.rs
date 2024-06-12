@@ -22,9 +22,10 @@ pub(crate) enum OpCode {
     BitOp((RegisterID, RegisterID, Case)),
     IOp(Address), // NOTE: technically a memory control instruction
     MemoryOp((RegisterID, Case)),
-    Unknown,
     KeyOpSkip(Case, RegisterID),
     KeyOpWait(RegisterID),
+    RandomOp((RegisterID, Constant)),
+    Unknown,
 }
 
 impl From<u16> for OpCode {
@@ -71,6 +72,13 @@ impl From<u16> for OpCode {
                 OpCode::BitOp(args)
             }
             (0xA, _, _, _) => OpCode::IOp(value & 0x0FFF), // NOTE: technically a memory control instruction
+            (0xC, register_id, _, _) => {
+                let args = (
+                    u8::try_from(register_id).expect("Invalid register number"),
+                    u8::try_from(value & 0x00FF).expect("Invalid constant"),
+                );
+                OpCode::RandomOp(args)
+            }
             (0xD, register_x, register_y, constant) => {
                 let args = (
                     u8::try_from(register_x).expect("Invalid register number"),
@@ -83,18 +91,18 @@ impl From<u16> for OpCode {
                 let reg_id = u8::try_from(reg_id).expect("Invalid register number");
 
                 let case = match (digits.2, digits.3) {
-                    (9, 0xE) => 0x9E,    // Ex9E
-                    (0xA, 1) => 0xA1,    // ExA1
+                    (9, 0xE) => 0x9E, // Ex9E
+                    (0xA, 1) => 0xA1, // ExA1
                     _ => unreachable!(),
                 };
 
                 OpCode::KeyOpSkip(case, reg_id)
             }
-            
+
             (0xF, reg_id, 0, 0xA) => {
                 let reg_id = u8::try_from(reg_id).expect("Invalid register number");
                 OpCode::KeyOpWait(reg_id)
-            },
+            }
 
             (0xF, reg_id, 1 | 2 | 5 | 6, 0xE | 9 | 5) => {
                 let reg_id = u8::try_from(reg_id).expect("Invalid register number");
@@ -147,10 +155,22 @@ impl Emu {
             OpCode::BitOp(args) => self.handle_bit_op(*args),
             OpCode::IOp(address) => self.handle_io(*address), // NOTE: technically a memory control instruction
             OpCode::MemoryOp(args) => self.handle_memory_op(*args),
-            OpCode::Unknown => unreachable!(),
             OpCode::KeyOpSkip(case, reg_id) => self.handle_keyop_skip(*case, *reg_id),
             OpCode::KeyOpWait(reg_id) => todo!(),
+            OpCode::RandomOp(args) => self.handle_random_op(*args),
+            OpCode::Unknown => unreachable!(),
         }
+    }
+
+    /// Handles the `RandomOp` opcode.
+    /// Sets register X to the result of a bitwise AND operation on a random number (0 to 255) and a constant.
+    /// # Arguments
+    /// - `register_id`: The register to act upon.
+    /// - `constant`: The constant to act upon.
+    fn handle_random_op(&mut self, (register_id, constant): (RegisterID, Constant)) {
+        let random_number: u8 = rand::random();
+        let result = random_number & constant;
+        self.set_register_val(register_id, result);
     }
 
     /// Handles the `IOp` opcode, which Sets I to the address.
@@ -631,6 +651,22 @@ mod tests {
 
         assert_eq!(emu.psuedo_registers.program_counter, 4);
     }
+
+    #[test]
+    fn test_opcode_rand() {
+        let mut emu = setup();
+
+        emu.ram[0] = 0xC0;
+        emu.ram[1] = 0x12;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::RandomOp((0, 0x12)));
+
+        emu.execute_opcode(&opcode);
+
+        let register_val = emu.get_register_val(0);
+
+        println!("Register 0: {register_val}");
+    }
 }
-
-
