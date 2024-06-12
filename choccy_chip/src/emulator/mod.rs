@@ -11,7 +11,6 @@ pub const RAM_SIZE: usize = 4096;
 /// The CHIP-8 CPU has 16 levels of stack.
 pub const STACK_SIZE: usize = 16;
 
-
 /// Size of Character Set
 pub const CHARACTER_SPRITE_SET_SIZE: usize = 80;
 
@@ -32,7 +31,7 @@ pub const CHARACTER_SET: [u8; CHARACTER_SPRITE_SET_SIZE] = [
     0xF0, 0x80, 0x80, 0x80, 0xF0, // C
     0xE0, 0x90, 0x90, 0x90, 0xE0, // D
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+    0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 
 #[derive(Debug)]
