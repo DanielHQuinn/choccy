@@ -1,6 +1,8 @@
 //! This module contains the `OpCode` enum which represents the different opcodes that the CHIP-8 emulator can execute.
 //! Additionally, it contains the `OpCodeError` enum which represents the different errors that can occur when executing an opcode.
 //! Finally, it implments methods for the `OpCode` enum.
+use std::env::Args;
+
 use super::Emu;
 type Address = u16; // an address
 type Case = u8; // represents a number that can be used in a switch statement
@@ -15,6 +17,7 @@ pub(crate) enum OpCode {
     Nop,
     SkipEquals((Case, RegisterID, Constant)),
     SkipRegEquals((Case, RegisterID, RegisterID)),
+    Constant((Case, RegisterID, Constant)),
     Display(Option<(Constant, Constant, Constant)>), // Whether to clear or draw
     Return,                                          // NOTE: technically a flow control instruction
     Call(Address),                                   // NOTE: This is deprecated
@@ -59,6 +62,14 @@ impl From<u16> for OpCode {
                     u8::try_from(register_y).expect("Invalid register number"),
                 );
                 OpCode::SkipRegEquals(args)
+            }
+            (6 | 7, register_x, _, _) => {
+                let args = (
+                    u8::try_from(digits.0).expect("Invalid case"),
+                    u8::try_from(register_x).expect("Invalid register number"),
+                    u8::try_from(value & 0x00FF).expect("Invalid register number"),
+                );
+                OpCode::Constant(args)
             }
             (8, register_x, register_y, constant) => {
                 let args = (
@@ -121,6 +132,7 @@ impl Emu {
         match opcode {
             OpCode::Nop => {}
             OpCode::SkipEquals(args) | OpCode::SkipRegEquals(args) => self.handle_cond(*args),
+            OpCode::Constant(args) => self.handle_const(*args),
             OpCode::Call(_) => panic!("DEPRECATED!"), // TODO: deprecated! error handle later on
             OpCode::Display(_to_draw) => todo!(),
             OpCode::Return => self.handle_return(), // NOTE: technically a flow instruction
@@ -179,8 +191,68 @@ impl Emu {
         }
     }
 
-    fn handle_bit_op(&self, (register_x, register_y, constant): (RegisterID, RegisterID, Case)) {
-        todo!()
+    /// Handles the `Assig`,`BitOp`,`Math` opcodes.
+    /// Check the case and skips based on the value of a register and a constant.
+    /// # Arguments
+    /// - `register_x`: A register operate on.
+    /// - `register_y`: Another register operate on.
+    /// - `case`: The case to switch on.
+    /// # Cases
+    /// - TODO
+    fn handle_bit_op(&mut self, (register_x, register_y, case): (RegisterID, RegisterID, Case)) {
+        let register_x_val = self.get_register_val(register_x);
+        let register_y_val = self.get_register_val(register_y);
+
+        match case {
+            0x0 => {
+                // Vx = Vy
+                self.set_register_val(register_x, register_y_val);
+            }
+            0x1 => {
+                // Vx |= Vy
+                self.set_register_val(register_x, register_x_val | register_y_val);
+            }
+            0x2 => {
+                // Vx &= Vy
+                self.set_register_val(register_x, register_x_val & register_y_val);
+            }
+            0x3 => {
+                // Vx ^= Vy
+                self.set_register_val(register_x, register_x_val ^ register_y_val);
+            }
+            0x4 => {
+                // Vx += Vy
+                // set Vf to 1 when overflow, 0 otherwise
+                let (result, overflow) = register_x_val.overflowing_add(register_y_val);
+                self.set_register_val(register_x, result);
+                self.set_register_val(0xF, u8::from(overflow));
+            }
+            0x5 => {
+                // Vx -= Vy
+                // set Vf to 0 when underflow, 1 otherwise
+                let (result, overflow) = register_x_val.overflowing_sub(register_y_val);
+                self.set_register_val(register_x, result);
+                self.set_register_val(0xF, u8::from(!overflow));
+            }
+            0x6 => {
+                // Shift VX right by 1 and stores lsb of VX before shift into VF
+                self.set_register_val(0xF, register_x_val & 0x1);
+                self.set_register_val(register_x, register_x_val >> 1);
+            }
+            0x7 => {
+                // Vy -= Vx
+                // set Vf to 0 when underflow, 1 otherwise
+                let (result, overflow) = register_y_val.overflowing_sub(register_x_val);
+                self.set_register_val(register_x, result);
+                self.set_register_val(0xF, u8::from(!overflow));
+            }
+            0xE => {
+                // Shift VX left by 1 and stores msb of VX before shift into VF
+                self.set_register_val(0xF, (register_x_val >> 7) & 0x1);
+                self.set_register_val(register_x, register_x_val << 1);
+            }
+            _ => unreachable!(),
+        }
     }
 
     /// Handles the `Cond` opcode.
@@ -200,6 +272,24 @@ impl Emu {
         if condition_met {
             self.psuedo_registers.program_counter += 2;
         }
+    }
+
+    /// Handles the `Const` opcode.
+    /// Check sets the value of a register to a constant or increments the value by a constant.
+    /// # Arguments
+    /// - `register`: The register to check.
+    /// - `constant` The constant set or increment the register's value by
+    fn handle_const(&mut self, (case, register, constant): (Case, RegisterID, u8)) {
+        match case {
+            6 => {
+                self.set_register_val(register, constant);
+            }
+            7 => {
+                let register_val: u8 = self.get_register_val(register);
+                self.set_register_val(register, constant + register_val);
+            }
+            _ => unreachable!(),
+        };
     }
 
     /// Handle a return instruction from a subroutine.
@@ -395,7 +485,6 @@ mod tests {
 
         assert_eq!(emu.psuedo_registers.program_counter, 4);
     }
-
     #[test]
     fn test_opcode_skip_register_equals() {
         let mut emu = setup();
@@ -432,6 +521,148 @@ mod tests {
         emu.execute_opcode(&opcode);
 
         assert_eq!(emu.psuedo_registers.program_counter, 4);
+    }
+
+    #[test]
+    fn test_opcode_set_const() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.ram[0] = 0x60;
+        emu.ram[1] = 0x34;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::Constant((6, 0, 0x34)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x34);
+    }
+
+    #[test]
+    fn test_opcode_add_const() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.ram[0] = 0x70;
+        emu.ram[1] = 0x34;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::Constant((7, 0, 0x34)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x46);
+    }
+
+    //TODO: FIX BITOP TESTS
+    #[test]
+    fn test_opcode_bit_op0() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x00;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((8, 0, 0)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x34);
+    }
+
+    #[test]
+    fn test_opcode_bit_op1() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x01;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((8, 0, 1)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x26);
+    }
+
+    #[test]
+    fn test_opcode_bit_op2() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x02;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((8, 0, 2)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x46);
+    }
+
+    #[test]
+    fn test_opcode_bit_op3() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x03;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((8, 0, 3)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x22);
+    }
+
+    #[test]
+    fn test_opcode_bit_op4() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x04;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((8, 0, 4)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x46);
+    }
+
+    #[test]
+    fn test_opcode_bit_op5() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x05;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((8, 0, 5)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x26);
+    }
+
+    #[test]
+    fn test_opcode_bit_op6() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x06;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((8, 0, 6)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x12);
+    }
+
+    #[test]
+    fn test_opcode_bit_op7() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x07;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((8, 0, 7)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x22);
+    }
+
+    #[test]
+    fn test_opcode_bit_ope() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x0E;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((8, 0, 0xE)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x24);
     }
 
     #[test]
