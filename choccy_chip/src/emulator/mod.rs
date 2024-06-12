@@ -11,14 +11,16 @@ pub const RAM_SIZE: usize = 4096;
 /// The CHIP-8 CPU has 16 levels of stack.
 pub const STACK_SIZE: usize = 16;
 
-/// Size of Character Set
-pub const CHARACTER_SPRITE_SET_SIZE: usize = 80;    
-
 /// Number of keys
 pub const NUM_KEYS: usize = 16;
 
-/// `CHARACTER_SET` to draw characters 0-F
-pub const CHARACTER_SET: [u8; CHARACTER_SPRITE_SET_SIZE] = [
+/// Size of Character Set
+pub const SPRITE_SET_SIZE: usize = 80;
+
+/// `SPRITE_SET` to draw characters 0-F
+/// An image of each character is stored in memory at the locations 0x000-0x01F.
+/// Each character is 5 bytes long so 8 x 5
+pub const SPRITE_SET: [u8; SPRITE_SET_SIZE] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -92,7 +94,9 @@ impl Emu {
             keys: [false; NUM_KEYS],
         };
 
-        emu.ram[0..CHARACTER_SPRITE_SET_SIZE].copy_from_slice(&CHARACTER_SET);
+        // fill the first 80 bytes of memory with the character set
+        // this works because we start at 0x200
+        emu.ram[0..SPRITE_SET_SIZE].copy_from_slice(&SPRITE_SET);
 
         emu
     }
@@ -112,7 +116,7 @@ impl Emu {
         self.i_register = 0;
         self.ram = [0; RAM_SIZE];
         self.stack = [0; STACK_SIZE];
-        self.ram[0..CHARACTER_SPRITE_SET_SIZE].copy_from_slice(&CHARACTER_SET);
+        self.ram[0..SPRITE_SET_SIZE].copy_from_slice(&SPRITE_SET);
     }
 
     fn get_register_val(&self, register: u8) -> u8 {

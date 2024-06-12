@@ -1,8 +1,6 @@
 //! This module contains the `OpCode` enum which represents the different opcodes that the CHIP-8 emulator can execute.
 //! Additionally, it contains the `OpCodeError` enum which represents the different errors that can occur when executing an opcode.
 //! Finally, it implments methods for the `OpCode` enum.
-use std::env::Args;
-
 use super::Emu;
 type Address = u16; // an address
 type Case = u8; // represents a number that can be used in a switch statement
@@ -15,19 +13,23 @@ type RegisterID = u8; // a 4 bit register number
 #[derive(Debug, PartialEq)]
 pub(crate) enum OpCode {
     Nop,
+    Call(Address),                                   // TODO: This is deprecated
+    Display(Option<(Constant, Constant, Constant)>), // TODO: Implement this
+    Return,                                          // NOTE: technically a flow control instruction
+    Flow(Case, Address),
     SkipEquals((Case, RegisterID, Constant)),
     SkipRegEquals((Case, RegisterID, RegisterID)),
     Constant((Case, RegisterID, Constant)),
-    Display(Option<(Constant, Constant, Constant)>), // Whether to clear or draw
-    Return,                                          // NOTE: technically a flow control instruction
-    Call(Address),                                   // NOTE: This is deprecated
-    Flow(Case, Address),
     BitOp((RegisterID, RegisterID, Case)),
     IOp(Address), // NOTE: technically a memory control instruction
     MemoryOp((RegisterID, Case)),
-    KeyOpSkip(Case, RegisterID),
-    KeyOpWait(RegisterID),
     RandomOp((RegisterID, Constant)),
+    KeyOpSkip(Case, RegisterID),
+    KeyOpWait(RegisterID), // TODO: Implement this
+    // Timer
+    // Sound
+    // Display
+    // BCD
     Unknown,
 }
 
@@ -232,6 +234,7 @@ impl Emu {
         }
     }
 
+    #[allow(clippy::similar_names)]
     /// Handles the `Assig`,`BitOp`,`Math` opcodes.
     /// Check the case and skips based on the value of a register and a constant.
     /// # Arguments
@@ -327,7 +330,8 @@ impl Emu {
             }
             7 => {
                 let register_val: u8 = self.get_register_val(register);
-                self.set_register_val(register, constant + register_val);
+                let check = constant.wrapping_add(register_val); // TODO: make sure this is correct
+                self.set_register_val(register, check);
             }
             _ => unreachable!(),
         };
@@ -390,6 +394,7 @@ impl Emu {
         }
     }
 
+    // TODO: Implement this
     fn handle_keyop_wait(&mut self, reg_id: u8) {
         todo!()
     }
@@ -899,5 +904,75 @@ mod tests {
         let register_val = emu.get_register_val(0);
 
         println!("Register 0: {register_val}");
+    }
+
+    #[test]
+    fn test_op_code() {
+        let mut emu = setup();
+
+        let opcodes = [
+            0x60, 0x01, // 0x6001 // set register 0 to 1
+            0x81, 0x00, // 0x8100 // set register 1 to the val of register 0
+            0x70, 0x02, // 0x7002 // add 2 to register 0
+            0x90,
+            0x10, // 0x9010 // skip next instruction if register 0 is not equal to register 1
+            0x00, 0x1E, // 0x00EE // this should be 'call' which is deprecated <- else panic
+            0x80, 0x14, // 0x8014 // increment register 0 by register 1
+            0x6e, 0xff, // 0x6F00 // set register 0xF to 255
+            0x7e, 0x0, // 0x7F01 // add 1 to register 0xF
+            0x8e, 0x14, // 0x8E01 // set register 0xE to 1
+        ];
+
+        emu.ram[0..opcodes.len()].copy_from_slice(&opcodes);
+
+        let first_op = emu.fetch_opcode();
+        assert_eq!(first_op, OpCode::Constant((6, 0, 1)));
+        emu.execute_opcode(&first_op);
+        assert_eq!(emu.get_register_val(0), 1);
+        assert_eq!(emu.program_counter(), 2);
+
+        let second_op = emu.fetch_opcode();
+        assert_eq!(second_op, OpCode::BitOp((1, 0, 0)));
+        emu.execute_opcode(&second_op);
+        assert_eq!(emu.get_register_val(1), 1);
+        assert_eq!(emu.program_counter(), 4);
+
+        let third_op = emu.fetch_opcode();
+        assert_eq!(third_op, OpCode::Constant((7, 0, 2)));
+        emu.execute_opcode(&third_op);
+        assert_eq!(emu.get_register_val(0), 3);
+        assert_eq!(emu.program_counter(), 6);
+
+        let fourth_op = emu.fetch_opcode();
+        assert_eq!(fourth_op, OpCode::SkipRegEquals((9, 0, 1)));
+        emu.execute_opcode(&fourth_op);
+        assert_eq!(emu.program_counter(), 10); // cause we skip to the next instruction
+
+        let fifth_op = emu.fetch_opcode();
+        assert_eq!(fifth_op, OpCode::BitOp((0, 1, 4)));
+        emu.execute_opcode(&fifth_op);
+        assert_eq!(emu.get_register_val(0), 4);
+        assert_eq!(emu.program_counter(), 12);
+        assert_eq!(emu.get_register_val(0xf), 0);
+
+        let sixth_op = emu.fetch_opcode();
+        assert_eq!(sixth_op, OpCode::Constant((6, 0xe, 0xff)));
+        emu.execute_opcode(&sixth_op);
+        assert_eq!(emu.get_register_val(0xe), 0xff);
+        assert_eq!(emu.program_counter(), 14);
+
+        let seventh_op = emu.fetch_opcode();
+        assert_eq!(seventh_op, OpCode::Constant((7, 0xe, 0)));
+        emu.execute_opcode(&seventh_op);
+        assert_eq!(emu.get_register_val(0xe), 0xff);
+        assert_eq!(emu.program_counter(), 16);
+        assert_eq!(emu.get_register_val(0xf), 0); // here f is 0
+
+        let eighth_op = emu.fetch_opcode();
+        assert_eq!(eighth_op, OpCode::BitOp((14, 1, 4)));
+        emu.execute_opcode(&eighth_op);
+        assert_eq!(emu.get_register_val(0xe), 0);
+        assert_eq!(emu.program_counter(), 18);
+        assert_eq!(emu.get_register_val(0xf), 1); // now f is 1 since we overflowed
     }
 }
