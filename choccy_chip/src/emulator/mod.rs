@@ -11,6 +11,29 @@ pub const RAM_SIZE: usize = 4096;
 /// The CHIP-8 CPU has 16 levels of stack.
 pub const STACK_SIZE: usize = 16;
 
+/// Size of Character Set
+pub const CHARACTER_SPRITE_SET_SIZE: usize = 80;
+
+/// `CHARACTER_SET` to draw characters 0-F
+pub const CHARACTER_SET: [u8; CHARACTER_SPRITE_SET_SIZE] = [
+    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80, // F
+];
+
 #[derive(Debug)]
 /// The Emu struct is used to emulate the CHIP-8 CPU.
 // TODO: consider whether this should be in topmost lib.rs and how API should be structured
@@ -54,14 +77,36 @@ impl Emu {
 
         let general_registers = registers::GeneralRegisters::default();
 
-        Self {
+        let mut emu = Self {
             psuedo_registers,
             special_registers,
             general_registers,
             i_register: 0,
             ram: [0; RAM_SIZE],
             stack: [0; STACK_SIZE],
-        }
+        };
+
+        emu.ram[0..CHARACTER_SPRITE_SET_SIZE].copy_from_slice(&CHARACTER_SET);
+
+        emu
+    }
+
+    /// Sets the start address of the emulator.
+    pub fn set_start_address(&mut self, address: u16) {
+        self.psuedo_registers.program_counter = address;
+    }
+
+    /// Resets the emulator to its initial state.
+    /// With character set loaded into memory as well.
+    pub fn reset(&mut self) {
+        self.psuedo_registers.program_counter = Self::START_ADDRESS;
+        self.psuedo_registers.stack_pointer = 0;
+        self.special_registers = registers::SpecialRegisters::default();
+        self.general_registers = registers::GeneralRegisters::default();
+        self.i_register = 0;
+        self.ram = [0; RAM_SIZE];
+        self.stack = [0; STACK_SIZE];
+        self.ram[0..CHARACTER_SPRITE_SET_SIZE].copy_from_slice(&CHARACTER_SET);
     }
 
     fn get_register_val(&self, register: u8) -> u8 {
@@ -116,7 +161,6 @@ mod tests {
         assert_eq!(emu.special_registers.delay_timer, 0);
         assert_eq!(emu.special_registers.sound_timer, 0);
         assert_eq!(emu.i_register, 0);
-        assert_eq!(emu.ram, [0; RAM_SIZE]);
         assert_eq!(emu.stack, [0; STACK_SIZE]);
     }
 

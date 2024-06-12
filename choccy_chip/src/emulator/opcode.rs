@@ -14,12 +14,14 @@ type RegisterID = u8; // a 4 bit register number
 pub(crate) enum OpCode {
     Nop,
     SkipEquals((Case, RegisterID, Constant)),
-    SkipRegisterEquals((Case, RegisterID, RegisterID)),
+    SkipRegEquals((Case, RegisterID, RegisterID)),
     Display(Option<(Constant, Constant, Constant)>), // Whether to clear or draw
     Return,                                          // NOTE: technically a flow control instruction
     Call(Address),                                   // NOTE: This is deprecated
     Flow(Case, Address),
     BitOp((RegisterID, RegisterID, Case)),
+    IOp(Address), // NOTE: technically a memory control instruction
+    MemoryOp((RegisterID, Case)),
     Unknown,
 }
 
@@ -39,7 +41,6 @@ impl From<u16> for OpCode {
             (0, _, _, _) => OpCode::Call(value & 0x0FFF), // Get rid of the first digit
             (1 | 2 | 0xB, _, _, _) => {
                 let flow_case = u8::try_from(digits.0).expect("Invalid flow case");
-
                 let address = value & 0x0FFF;
                 OpCode::Flow(flow_case, address)
             }
@@ -57,7 +58,7 @@ impl From<u16> for OpCode {
                     u8::try_from(register_x).expect("Invalid register number"),
                     u8::try_from(register_y).expect("Invalid register number"),
                 );
-                OpCode::SkipRegisterEquals(args)
+                OpCode::SkipRegEquals(args)
             }
             (8, register_x, register_y, constant) => {
                 let args = (
@@ -67,6 +68,7 @@ impl From<u16> for OpCode {
                 );
                 OpCode::BitOp(args)
             }
+            (0xA, _, _, _) => OpCode::IOp(value & 0x0FFF), // NOTE: technically a memory control instruction
             (0xD, register_x, register_y, constant) => {
                 let args = (
                     u8::try_from(register_x).expect("Invalid register number"),
@@ -74,6 +76,19 @@ impl From<u16> for OpCode {
                     u8::try_from(constant).expect("Invalid constant"),
                 );
                 OpCode::Display(Some(args))
+            }
+            (0xF, reg_id, 1 | 2 | 5 | 6, 0xE | 9 | 5) => {
+                let reg_id = u8::try_from(reg_id).expect("Invalid register number");
+
+                let case = match (digits.2, digits.3) {
+                    (1, 0xE) => 0x1E,    // Fx1E
+                    (2, 9) => 29,        // Fx29
+                    (5, 5) => 55,        // Fx55
+                    (6, 5) => 65,        // Fx65
+                    _ => unreachable!(), // TODO: handle this error
+                };
+
+                OpCode::MemoryOp((reg_id, case))
             }
             _ => OpCode::Unknown,
         }
@@ -105,15 +120,62 @@ impl Emu {
     pub(crate) fn execute_opcode(&mut self, opcode: &OpCode) {
         match opcode {
             OpCode::Nop => {}
-            OpCode::SkipEquals(args) | OpCode::SkipRegisterEquals(args) => {
-                self.handle_cond(*args);
-            }
-            OpCode::Call(_) => panic!("DEPRECATED!"), // NOTE: deprecated! error handle later on
+            OpCode::SkipEquals(args) | OpCode::SkipRegEquals(args) => self.handle_cond(*args),
+            OpCode::Call(_) => panic!("DEPRECATED!"), // TODO: deprecated! error handle later on
             OpCode::Display(_to_draw) => todo!(),
             OpCode::Return => self.handle_return(), // NOTE: technically a flow instruction
             OpCode::Flow(case, address) => self.handle_flow(*case, *address),
             OpCode::BitOp(args) => self.handle_bit_op(*args),
+            OpCode::IOp(address) => self.handle_io(*address), // NOTE: technically a memory control instruction
+            OpCode::MemoryOp(args) => self.handle_memory_op(*args),
             OpCode::Unknown => unreachable!(),
+        }
+    }
+
+    /// Handles the `IOp` opcode, which Sets I to the address.
+    ///
+    /// # Arguments
+    /// - `address`: The address to act upon.
+    fn handle_io(&mut self, address: Address) {
+        self.i_register = address;
+    }
+
+    /// Handles the `MemoryOp` opcode.
+    ///
+    /// # Arguments
+    /// - `register`: The register to act upon.
+    /// - `case`: The case to switch on.
+    ///
+    /// # Cases
+    /// - 0x1E: Adds the value of register X to I. VF is not affected.
+    /// - 29: Sets I to the location of the sprite for the character in register X. Characters 0-F
+    ///     (in hexadecimal) are represented by a 4x5 font.
+    /// - 55: Stores V0 to VX in memory starting at address I. With an offset increment of 1
+    /// - 65: Fills V0 to VX with values from memory starting at address I. With an offset increment of 1
+    fn handle_memory_op(&mut self, (register_id, case): (RegisterID, Case)) {
+        match case {
+            0x1E => {
+                let register_val = u16::from(self.get_register_val(register_id));
+                self.i_register = self.i_register.wrapping_add(register_val);
+            }
+            29 => {
+                let register_val = u16::from(self.get_register_val(register_id));
+                self.i_register = register_val * 5; // each character sprite is 5 bytes long
+            }
+            55 => {
+                let i_reg = self.i_register as usize;
+                for curr_reg in 0..=register_id {
+                    self.ram[i_reg + curr_reg as usize] = self.get_register_val(curr_reg);
+                }
+            }
+            65 => {
+                let i_reg = self.i_register as usize;
+                for curr_reg in 0..=register_id {
+                    let val = self.ram[i_reg + curr_reg as usize];
+                    self.set_register_val(curr_reg, val);
+                }
+            }
+            _ => unreachable!(), // TODO: handle this error
         }
     }
 
@@ -126,41 +188,17 @@ impl Emu {
     /// # Arguments
     /// - `register`: The register to check.
     /// - `constant` | `register`: The constant or register to check against.
-    fn handle_cond(&mut self, args: (Case, RegisterID, u8)) {
-        let case = args.0;
-        let register = args.1;
-        let constant = args.2;
-
-        match case {
-            3 => {
-                let register = self.get_register_val(register);
-                if register == constant {
-                    self.psuedo_registers.program_counter += 2;
-                }
-            }
-            4 => {
-                let register = self.get_register_val(register);
-                if register != constant {
-                    self.psuedo_registers.program_counter += 2;
-                }
-            }
-            5 => {
-                let register_x = self.get_register_val(register);
-                let register_y = self.get_register_val(constant);
-                if register_x == register_y {
-                    self.psuedo_registers.program_counter += 2;
-                }
-            }
-
-            9 => {
-                let register_x = self.get_register_val(register);
-                let register_y = self.get_register_val(constant);
-
-                if register_x != register_y {
-                    self.psuedo_registers.program_counter += 2;
-                }
-            }
+    fn handle_cond(&mut self, (case, register, constant): (Case, RegisterID, u8)) {
+        let register_val = self.get_register_val(register);
+        let condition_met = match case {
+            3 => register_val == constant,
+            4 => register_val != constant,
+            5 => register_val == self.get_register_val(constant),
+            9 => register_val != self.get_register_val(constant),
             _ => unreachable!(),
+        };
+        if condition_met {
+            self.psuedo_registers.program_counter += 2;
         }
     }
 
@@ -370,7 +408,7 @@ mod tests {
 
         let opcode = emu.fetch_opcode();
 
-        assert_eq!(opcode, OpCode::SkipRegisterEquals((5, 0, 1)));
+        assert_eq!(opcode, OpCode::SkipRegEquals((5, 0, 1)));
 
         emu.execute_opcode(&opcode);
 
@@ -389,10 +427,124 @@ mod tests {
 
         let opcode = emu.fetch_opcode();
 
-        assert_eq!(opcode, OpCode::SkipRegisterEquals((9, 0, 1)));
+        assert_eq!(opcode, OpCode::SkipRegEquals((9, 0, 1)));
 
         emu.execute_opcode(&opcode);
 
         assert_eq!(emu.psuedo_registers.program_counter, 4);
+    }
+
+    #[test]
+    fn test_opcode_iop() {
+        let mut emu = setup();
+
+        emu.ram[0] = 0xA2;
+        emu.ram[1] = 0x34;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::IOp(0x234));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.i_register, 0x234);
+    }
+
+    #[test]
+    fn test_opcode_memory_op1e() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x12);
+        emu.i_register = 0x34;
+
+        emu.ram[0] = 0xF0;
+        emu.ram[1] = 0x1E;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::MemoryOp((0, 0x1E)));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.i_register, 0x46);
+
+        emu.set_register_val(0, 0x1);
+
+        emu.i_register = 0xFFFF; // this can be upto 0xFFFF
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.i_register, 0x0);
+    }
+
+    #[test]
+    fn test_opcode_memory_op29() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x1);
+
+        emu.ram[0] = 0xF0;
+        emu.ram[1] = 0x29;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::MemoryOp((0, 29))); // here 29 is just 29 and not 0x29
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.i_register, 0x5);
+    }
+
+    #[test]
+    fn test_opcode_memory_op55() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x1);
+        emu.set_register_val(1, 0x2);
+        emu.set_register_val(2, 0x3);
+        emu.set_register_val(3, 0x4);
+
+        emu.i_register = 0x34;
+
+        emu.ram[0] = 0xF3;
+        emu.ram[1] = 0x55;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::MemoryOp((3, 55))); // here 55 is just 55 and not 0x55
+
+        emu.execute_opcode(&opcode);
+
+        // now, the following are in memory
+        assert_eq!(emu.ram[0x34], 0x1);
+        assert_eq!(emu.ram[0x35], 0x2);
+        assert_eq!(emu.ram[0x36], 0x3);
+        assert_eq!(emu.ram[0x37], 0x4);
+    }
+
+    #[test]
+    fn test_opcode_memory_op65() {
+        let mut emu = setup();
+
+        emu.i_register = 0x34;
+
+        emu.ram[0] = 0xF3;
+        emu.ram[1] = 0x65;
+
+        emu.ram[0x34] = 0x1;
+        emu.ram[0x35] = 0x2;
+        emu.ram[0x36] = 0x3;
+        emu.ram[0x37] = 0x4;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::MemoryOp((3, 65))); // here 65 is just 65 and not 0x65
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.get_register_val(0), 0x1);
+        assert_eq!(emu.get_register_val(1), 0x2);
+        assert_eq!(emu.get_register_val(2), 0x3);
+        assert_eq!(emu.get_register_val(3), 0x4);
     }
 }
