@@ -548,122 +548,122 @@ mod tests {
     }
 
     //TODO: FIX BITOP TESTS
-    // #[test]
-    // fn test_opcode_bit_op0() {
-    //     let mut emu = setup();
-    //     emu.set_register_val(0, 0x12);
-    //     emu.set_register_val(1, 0x34);
-    //     emu.ram[0] = 0x80;
-    //     emu.ram[1] = 0x00;
-    //     let opcode = emu.fetch_opcode();
-    //     assert_eq!(opcode, OpCode::BitOp((8, 0, 0)));
-    //     emu.execute_opcode(&opcode);
-    //     assert_eq!(emu.get_register_val(0), 0x34);
-    // }
+    #[test]
+    fn test_opcode_bit_op0() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x10;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((0, 1, 0)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x34);
+    }
 
-    // #[test]
-    // fn test_opcode_bit_op1() {
-    //     let mut emu = setup();
-    //     emu.set_register_val(0, 0x12);
-    //     emu.set_register_val(1, 0x34);
-    //     emu.ram[0] = 0x80;
-    //     emu.ram[1] = 0x01;
-    //     let opcode = emu.fetch_opcode();
-    //     assert_eq!(opcode, OpCode::BitOp((8, 0, 1)));
-    //     emu.execute_opcode(&opcode);
-    //     assert_eq!(emu.get_register_val(0), 0x26);
-    // }
+    #[test]
+    fn test_opcode_bit_op1() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x36);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x11;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((0, 1, 1)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x36);
+    }
 
-    // #[test]
-    // fn test_opcode_bit_op2() {
-    //     let mut emu = setup();
-    //     emu.set_register_val(0, 0x12);
-    //     emu.set_register_val(1, 0x34);
-    //     emu.ram[0] = 0x80;
-    //     emu.ram[1] = 0x02;
-    //     let opcode = emu.fetch_opcode();
-    //     assert_eq!(opcode, OpCode::BitOp((8, 0, 2)));
-    //     emu.execute_opcode(&opcode);
-    //     assert_eq!(emu.get_register_val(0), 0x46);
-    // }
+    #[test]
+    fn test_opcode_bit_op2() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x12);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x12;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((0, 1, 2)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x12);
+    }
 
-    // #[test]
-    // fn test_opcode_bit_op3() {
-    //     let mut emu = setup();
-    //     emu.set_register_val(0, 0x12);
-    //     emu.set_register_val(1, 0x34);
-    //     emu.ram[0] = 0x80;
-    //     emu.ram[1] = 0x03;
-    //     let opcode = emu.fetch_opcode();
-    //     assert_eq!(opcode, OpCode::BitOp((8, 0, 3)));
-    //     emu.execute_opcode(&opcode);
-    //     assert_eq!(emu.get_register_val(0), 0x22);
-    // }
+    #[test]
+    fn test_opcode_bit_op3() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x13;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((0, 1, 3)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x26);
+    }
 
-    // #[test]
-    // fn test_opcode_bit_op4() {
-    //     let mut emu = setup();
-    //     emu.set_register_val(0, 0x12);
-    //     emu.set_register_val(1, 0x34);
-    //     emu.ram[0] = 0x80;
-    //     emu.ram[1] = 0x04;
-    //     let opcode = emu.fetch_opcode();
-    //     assert_eq!(opcode, OpCode::BitOp((8, 0, 4)));
-    //     emu.execute_opcode(&opcode);
-    //     assert_eq!(emu.get_register_val(0), 0x46);
-    // }
+    #[test]
+    fn test_opcode_bit_op4() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x14;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((0, 1, 4)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x46);
+    }
 
-    // #[test]
-    // fn test_opcode_bit_op5() {
-    //     let mut emu = setup();
-    //     emu.set_register_val(0, 0x12);
-    //     emu.set_register_val(1, 0x34);
-    //     emu.ram[0] = 0x80;
-    //     emu.ram[1] = 0x05;
-    //     let opcode = emu.fetch_opcode();
-    //     assert_eq!(opcode, OpCode::BitOp((8, 0, 5)));
-    //     emu.execute_opcode(&opcode);
-    //     assert_eq!(emu.get_register_val(0), 0x26);
-    // }
+    #[test]
+    fn test_opcode_bit_op5() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x20);
+        emu.set_register_val(1, 0x10);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x15;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((0, 1, 5)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x10);
+    }
 
-    // #[test]
-    // fn test_opcode_bit_op6() {
-    //     let mut emu = setup();
-    //     emu.set_register_val(0, 0x12);
-    //     emu.set_register_val(1, 0x34);
-    //     emu.ram[0] = 0x80;
-    //     emu.ram[1] = 0x06;
-    //     let opcode = emu.fetch_opcode();
-    //     assert_eq!(opcode, OpCode::BitOp((8, 0, 6)));
-    //     emu.execute_opcode(&opcode);
-    //     assert_eq!(emu.get_register_val(0), 0x12);
-    // }
+    #[test]
+    fn test_opcode_bit_op6() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x00);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x16;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((0, 1, 6)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x09);
+    }
 
-    // #[test]
-    // fn test_opcode_bit_op7() {
-    //     let mut emu = setup();
-    //     emu.set_register_val(0, 0x12);
-    //     emu.set_register_val(1, 0x34);
-    //     emu.ram[0] = 0x80;
-    //     emu.ram[1] = 0x07;
-    //     let opcode = emu.fetch_opcode();
-    //     assert_eq!(opcode, OpCode::BitOp((8, 0, 7)));
-    //     emu.execute_opcode(&opcode);
-    //     assert_eq!(emu.get_register_val(0), 0x22);
-    // }
+    #[test]
+    fn test_opcode_bit_op7() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x34);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x17;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((0, 1, 7)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x22);
+    }
 
-    // #[test]
-    // fn test_opcode_bit_ope() {
-    //     let mut emu = setup();
-    //     emu.set_register_val(0, 0x12);
-    //     emu.set_register_val(1, 0x34);
-    //     emu.ram[0] = 0x80;
-    //     emu.ram[1] = 0x0E;
-    //     let opcode = emu.fetch_opcode();
-    //     assert_eq!(opcode, OpCode::BitOp((8, 0, 0xE)));
-    //     emu.execute_opcode(&opcode);
-    //     assert_eq!(emu.get_register_val(0), 0x24);
-    // }
+    #[test]
+    fn test_opcode_bit_ope() {
+        let mut emu = setup();
+        emu.set_register_val(0, 0x12);
+        emu.set_register_val(1, 0x00);
+        emu.ram[0] = 0x80;
+        emu.ram[1] = 0x1E;
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::BitOp((0, 1, 0xE)));
+        emu.execute_opcode(&opcode);
+        assert_eq!(emu.get_register_val(0), 0x24);
+    }
 
     #[test]
     fn test_opcode_iop() {
