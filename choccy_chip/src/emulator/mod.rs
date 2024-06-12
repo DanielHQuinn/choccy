@@ -12,7 +12,10 @@ pub const RAM_SIZE: usize = 4096;
 pub const STACK_SIZE: usize = 16;
 
 /// Size of Character Set
-pub const CHARACTER_SPRITE_SET_SIZE: usize = 80;
+pub const CHARACTER_SPRITE_SET_SIZE: usize = 80;    
+
+/// Number of keys
+pub const NUM_KEYS: usize = 16;
 
 /// `CHARACTER_SET` to draw characters 0-F
 pub const CHARACTER_SET: [u8; CHARACTER_SPRITE_SET_SIZE] = [
@@ -52,6 +55,8 @@ pub struct Emu {
     ram: [u8; RAM_SIZE],
     /// The stack is used to store the address that the interpreter should return to when finished with a subroutine.
     stack: [u16; STACK_SIZE],
+    /// The keyboard is used to store the state of the CHIP-8 keyboard.
+    keys: [bool; NUM_KEYS],
 }
 
 impl Emu {
@@ -84,6 +89,7 @@ impl Emu {
             i_register: 0,
             ram: [0; RAM_SIZE],
             stack: [0; STACK_SIZE],
+            keys: [false; NUM_KEYS],
         };
 
         emu.ram[0..CHARACTER_SPRITE_SET_SIZE].copy_from_slice(&CHARACTER_SET);

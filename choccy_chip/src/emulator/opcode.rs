@@ -23,6 +23,8 @@ pub(crate) enum OpCode {
     IOp(Address), // NOTE: technically a memory control instruction
     MemoryOp((RegisterID, Case)),
     Unknown,
+    KeyOpSkip(Case, RegisterID),
+    KeyOpWait(RegisterID),
 }
 
 impl From<u16> for OpCode {
@@ -77,6 +79,23 @@ impl From<u16> for OpCode {
                 );
                 OpCode::Display(Some(args))
             }
+            (0xE, reg_id, 9 | 0xA, 0xE | 1) => {
+                let reg_id = u8::try_from(reg_id).expect("Invalid register number");
+
+                let case = match (digits.2, digits.3) {
+                    (9, 0xE) => 0x9E,    // Ex9E
+                    (0xA, 1) => 0xA1,    // ExA1
+                    _ => unreachable!(),
+                };
+
+                OpCode::KeyOpSkip(case, reg_id)
+            }
+            
+            (0xF, reg_id, 0, 0xA) => {
+                let reg_id = u8::try_from(reg_id).expect("Invalid register number");
+                OpCode::KeyOpWait(reg_id)
+            },
+
             (0xF, reg_id, 1 | 2 | 5 | 6, 0xE | 9 | 5) => {
                 let reg_id = u8::try_from(reg_id).expect("Invalid register number");
 
@@ -129,6 +148,8 @@ impl Emu {
             OpCode::IOp(address) => self.handle_io(*address), // NOTE: technically a memory control instruction
             OpCode::MemoryOp(args) => self.handle_memory_op(*args),
             OpCode::Unknown => unreachable!(),
+            OpCode::KeyOpSkip(case, reg_id) => self.handle_keyop_skip(*case, *reg_id),
+            OpCode::KeyOpWait(reg_id) => todo!(),
         }
     }
 
@@ -236,6 +257,31 @@ impl Emu {
             }
             _ => unreachable!(),
         }
+    }
+
+    /// Handle a keyop skip operation.
+    /// Skips the next instruction if the key stored in register X is pressed (or not pressed).
+    /// # Arguments
+    /// - `case`: The case to switch on.
+    /// - `reg_id`: The register to check.
+    /// # Cases
+    /// - 0x9E: Skips the next instruction if the key stored in register X is pressed.
+    /// - 0xA1: Skips the next instruction if the key stored in register X is not pressed.
+    fn handle_keyop_skip(&mut self, case: u8, reg_id: u8) {
+        let key = self.get_register_val(reg_id);
+        let key_state = self.keys[key as usize];
+        let skip = match case {
+            0x9E => key_state,
+            0xA1 => !key_state,
+            _ => unreachable!(),
+        };
+        if skip {
+            self.psuedo_registers.program_counter += 2;
+        }
+    }
+
+    fn handle_keyop_wait(&mut self, reg_id: u8) {
+        todo!()
     }
 }
 
@@ -547,4 +593,44 @@ mod tests {
         assert_eq!(emu.get_register_val(2), 0x3);
         assert_eq!(emu.get_register_val(3), 0x4);
     }
+
+    #[test]
+    fn test_opcode_keyop_skip_equals() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x1);
+        emu.keys[0x1] = true;
+
+        emu.ram[0] = 0xE0;
+        emu.ram[1] = 0x9E;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::KeyOpSkip(0x9E, 0));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.psuedo_registers.program_counter, 4);
+    }
+
+    #[test]
+    fn test_opcode_keyop_skip_not_equals() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x1);
+        emu.keys[0x1] = false;
+
+        emu.ram[0] = 0xE0;
+        emu.ram[1] = 0xA1;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::KeyOpSkip(0xA1, 0));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.psuedo_registers.program_counter, 4);
+    }
 }
+
+
