@@ -14,7 +14,7 @@ type RegisterID = u8; // a 4 bit register number
 pub(crate) enum OpCode {
     Nop,
     Call(Address),                                   // TODO: This is deprecated
-    Display(Option<(Constant, Constant, Constant)>), // TODO: Implement this
+    Display(Option<(Constant, Constant, Constant)>), 
     Return,                                          // NOTE: technically a flow control instruction
     Flow(Case, Address),
     SkipEquals((Case, RegisterID, Constant)),
@@ -25,9 +25,8 @@ pub(crate) enum OpCode {
     MemoryOp((RegisterID, Case)),
     RandomOp((RegisterID, Constant)),
     KeyOpSkip(Case, RegisterID),
-    KeyOpWait(RegisterID), // TODO: Implement this
-    // Timer
-    // Sound
+    KeyOpWait(RegisterID),
+    Timer((RegisterID, Case)),
     Bcd(RegisterID),
     Unknown,
 }
@@ -114,6 +113,20 @@ impl From<u16> for OpCode {
                 let reg_id = u8::try_from(reg_id).expect("Invalid register number");
                 OpCode::KeyOpWait(reg_id)
             }
+            (0xF, reg_id, 1, 5 | 8) => {
+                let args = (
+                    u8::try_from(reg_id).expect("Invalid register number"),
+                    u8::try_from(digits.3).expect("Invalid case"),
+                );
+                OpCode::Timer(args)
+            }
+            (0xF, reg_id, 0, 7) => {
+                let args = (
+                    u8::try_from(reg_id).expect("Invalid register number"),
+                    u8::try_from(digits.3).expect("Invalid case"),
+                );
+                OpCode::Timer(args)
+            }
             (0xF, reg_id, 1 | 2 | 5 | 6, 0xE | 9 | 5) => {
                 let reg_id = u8::try_from(reg_id).expect("Invalid register number");
 
@@ -171,7 +184,8 @@ impl Emu {
             OpCode::IOp(address) => self.handle_io(*address), // NOTE: technically a memory control instruction
             OpCode::MemoryOp(args) => self.handle_memory_op(*args),
             OpCode::KeyOpSkip(case, reg_id) => self.handle_keyop_skip(*case, *reg_id),
-            OpCode::KeyOpWait(reg_id) => todo!(),
+            OpCode::KeyOpWait(reg_id) => self.handle_keyop_wait(*reg_id),
+            OpCode::Timer(args) => self.handle_timer(*args),
             OpCode::RandomOp(args) => self.handle_random_op(*args),
             OpCode::Bcd(reg_id) => self.handle_bcd(*reg_id),
             OpCode::Unknown => unreachable!(),
@@ -464,9 +478,38 @@ impl Emu {
         }
     }
 
-    // TODO: Implement this
+    /// Handle a keyop wait operation
+    /// Waits for a key press and stores the key in the given register.
+    /// #Arguments
+    /// - `reg_id`: The register to store the key in.
+    /// #Notes
+    /// - This is a blocking operation.
+    /// - If multiple keys are pressed, the minimum is chosen.
     fn handle_keyop_wait(&mut self, reg_id: u8) {
-        todo!()
+        let mut pressed = false;
+        for i in 0..self.keys.len() {
+            if self.keys[i] {
+                self.set_register_val(reg_id, u8::try_from(i).expect("Invalid key"));
+                pressed = true;
+                break;
+            }
+        }
+        if !pressed {
+            // Redo opcode
+            self.psuedo_registers.program_counter -= 2;
+        }
+    }
+
+    /// Handle opcodes related to the sound and delay timers.
+    /// # Arguments
+    /// - `reg_id`: The register to get or set.
+    fn handle_timer(&mut self, (register_id, case): (RegisterID, Case)) {
+        match case {
+            7 => self.set_register_val(register_id, self.get_delay_timer()),
+            5 => self.set_delay_timer(self.get_register_val(register_id)),
+            8 => self.set_sound_timer(self.get_register_val(register_id)),
+            _ => unreachable!(),
+        };
     }
 }
 
@@ -944,6 +987,57 @@ mod tests {
     }
 
     #[test]
+    fn test_set_delay_timer() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x1);
+
+        emu.ram[0] = 0xF0;
+        emu.ram[1] = 0x15;
+
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::Timer((0, 5)));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.get_register_val(0), emu.get_delay_timer());
+    }
+
+    #[test]
+    fn test_sound_timer() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x1);
+
+        emu.ram[0] = 0xF0;
+        emu.ram[1] = 0x18;
+
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::Timer((0, 8)));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.get_register_val(0), emu.get_sound_timer());
+    }
+
+    #[test]
+    fn test_sound_delay_timer() {
+        let mut emu = setup();
+
+        emu.set_delay_timer(0x1);
+
+        emu.ram[0] = 0xF0;
+        emu.ram[1] = 0x07;
+
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::Timer((0, 7)));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.get_register_val(0), emu.get_delay_timer());
+    }
+
+    #[test]
     fn test_opcode_rand() {
         let mut emu = setup();
 
@@ -1081,5 +1175,23 @@ mod tests {
         assert_eq!(emu.get_register_val(0xe), 0);
         assert_eq!(emu.program_counter(), 18);
         assert_eq!(emu.get_register_val(0xf), 1); // now f is 1 since we overflowed
+    }
+
+    #[test]
+    fn test_opcode_keyop_wait() {
+        let mut emu = setup();
+
+        emu.keys[0] = true;
+
+        emu.ram[0] = 0xF0;
+        emu.ram[1] = 0x0A;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::KeyOpWait(0));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.get_register_val(0), 0);
     }
 }
