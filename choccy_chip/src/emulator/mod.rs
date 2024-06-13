@@ -5,6 +5,11 @@ pub mod opcode;
 pub mod registers;
 // pub mod instructions;
 
+/// width of the CHIP-8 screen
+pub const SCREEN_WIDTH: usize = 64;
+/// height of the CHIP-8 screen
+pub const SCREEN_HEIGHT: usize = 32;
+
 /// The CHIP-8 CPU has 4096 bytes of memory.
 pub const RAM_SIZE: usize = 4096;
 
@@ -59,6 +64,8 @@ pub struct Emu {
     stack: [u16; STACK_SIZE],
     /// The keyboard is used to store the state of the CHIP-8 keyboard.
     keys: [bool; NUM_KEYS],
+    /// The screen is used to store the state of the CHIP-8 screen.
+    screen: [bool; SCREEN_WIDTH * SCREEN_HEIGHT],
 }
 
 impl Emu {
@@ -92,6 +99,7 @@ impl Emu {
             ram: [0; RAM_SIZE],
             stack: [0; STACK_SIZE],
             keys: [false; NUM_KEYS],
+            screen: [false; SCREEN_WIDTH * SCREEN_HEIGHT],
         };
 
         // fill the first 80 bytes of memory with the character set
@@ -116,7 +124,13 @@ impl Emu {
         self.i_register = 0;
         self.ram = [0; RAM_SIZE];
         self.stack = [0; STACK_SIZE];
+        self.keys = [false; NUM_KEYS];
+        self.screen = [false; SCREEN_WIDTH * SCREEN_HEIGHT];
         self.ram[0..SPRITE_SET_SIZE].copy_from_slice(&SPRITE_SET);
+    }
+
+    fn screen_size() -> (usize, usize) {
+        (SCREEN_WIDTH, SCREEN_HEIGHT)
     }
 
     fn get_register_val(&self, register: u8) -> u8 {

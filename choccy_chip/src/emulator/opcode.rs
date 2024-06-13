@@ -28,8 +28,7 @@ pub(crate) enum OpCode {
     KeyOpWait(RegisterID), // TODO: Implement this
     // Timer
     // Sound
-    // Display
-    // BCD
+    Bcd(RegisterID),
     Unknown,
 }
 
@@ -111,12 +110,10 @@ impl From<u16> for OpCode {
 
                 OpCode::KeyOpSkip(case, reg_id)
             }
-
             (0xF, reg_id, 0, 0xA) => {
                 let reg_id = u8::try_from(reg_id).expect("Invalid register number");
                 OpCode::KeyOpWait(reg_id)
             }
-
             (0xF, reg_id, 1 | 2 | 5 | 6, 0xE | 9 | 5) => {
                 let reg_id = u8::try_from(reg_id).expect("Invalid register number");
 
@@ -129,6 +126,10 @@ impl From<u16> for OpCode {
                 };
 
                 OpCode::MemoryOp((reg_id, case))
+            }
+            (0xF, reg_id, 3, 3) => {
+                let reg_id = u8::try_from(reg_id).expect("Invalid register number");
+                OpCode::Bcd(reg_id)
             }
             _ => OpCode::Unknown,
         }
@@ -163,7 +164,7 @@ impl Emu {
             OpCode::SkipEquals(args) | OpCode::SkipRegEquals(args) => self.handle_cond(*args),
             OpCode::Constant(args) => self.handle_const(*args),
             OpCode::Call(_) => panic!("DEPRECATED!"), // TODO: deprecated! error handle later on
-            OpCode::Display(_to_draw) => todo!(),
+            OpCode::Display(to_draw) => self.handle_display(*to_draw),
             OpCode::Return => self.handle_return(), // NOTE: technically a flow instruction
             OpCode::Flow(case, address) => self.handle_flow(*case, *address),
             OpCode::BitOp(args) => self.handle_bit_op(*args),
@@ -172,8 +173,77 @@ impl Emu {
             OpCode::KeyOpSkip(case, reg_id) => self.handle_keyop_skip(*case, *reg_id),
             OpCode::KeyOpWait(reg_id) => todo!(),
             OpCode::RandomOp(args) => self.handle_random_op(*args),
+            OpCode::Bcd(reg_id) => self.handle_bcd(*reg_id),
             OpCode::Unknown => unreachable!(),
         }
+    }
+
+    /// Handles the `Display` type opcode.
+    ///
+    /// # Arguments
+    /// - `to_draw`: An optional tuple containing the x, y, and height of the sprite to draw.
+    ///    depending on this, we will either clear or draw
+    ///
+    /// Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
+    /// The interpreter reads n bytes from memory, starting at the address stored in I. These bytes are
+    /// then displayed as sprites on screen at coordinates (Vx, Vy). Sprites are XORed onto the
+    /// existing screen. If this causes any pixels to be erased, VF is set to 1, otherwise it is set
+    /// to 0. If the sprite is positioned so part of it is outside the coordinates of the display,
+    /// it wraps around to the opposite side of the screen. See instruction 8xy3 for more
+    /// information on XOR, and section 2.4, Display, for more information on the Chip-8 screen and
+    /// sprites.
+    fn handle_display(&mut self, to_draw: Option<(Constant, Constant, Constant)>) {
+        match to_draw {
+            Some((reg_x, reg_y, height)) => {
+                let i_reg = self.i_register as usize;
+                let x_val = u16::from(self.get_register_val(reg_x));
+                let y_val = u16::from(self.get_register_val(reg_y));
+                let (screen_width, screen_height) = Self::screen_size();
+
+                let mut collision = false;
+                for row in 0..height.into() {
+                    let sprite = self.ram[i_reg + row as usize];
+                    for col in 0..8 {
+                        // use a mask to fetch current's sprite bit
+                        // only flip if a 1
+                        if (sprite & (0x80 >> col)) != 0 {
+                            let x = (x_val + col) as usize % screen_width;
+                            let y = (y_val + row) as usize % screen_height;
+
+                            let index = y * screen_width + x;
+
+                            collision |= self.screen[index];
+                            self.screen[index] ^= true;
+                        }
+                    }
+                }
+
+                self.set_register_val(0xF, collision.into());
+            }
+            None => self.screen.fill(false),
+        }
+    }
+
+    #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+    /// Handles the `BCD` opcode.
+    ///
+    /// # Arguments
+    /// - `register_id`: The register to act upon.
+    ///
+    /// Stores the binary-coded decimal representation of VX, with the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2.[22]
+    fn handle_bcd(&mut self, register_id: RegisterID) {
+        let register_val = f32::from(self.get_register_val(register_id));
+        let (hundreds, tens, ones) = (
+            (register_val / 100.0).floor() as u8,
+            ((register_val / 10.0) % 10.0).floor() as u8,
+            (register_val % 10.0) as u8,
+        );
+
+        let i_reg = self.i_register as usize;
+
+        self.ram[i_reg] = hundreds;
+        self.ram[i_reg + 1] = tens;
+        self.ram[i_reg + 2] = ones;
     }
 
     /// Handles the `RandomOp` opcode.
@@ -431,21 +501,6 @@ mod tests {
         let opcode = emu.fetch_opcode();
 
         assert_eq!(opcode, OpCode::Call(0x234));
-
-        emu.execute_opcode(&opcode);
-    }
-
-    #[test]
-    #[should_panic = "not yet implemented"]
-    fn test_opcode_display() {
-        let mut emu = setup();
-
-        emu.ram[0] = 0xD0;
-        emu.ram[1] = 0x00;
-
-        let opcode = emu.fetch_opcode();
-
-        assert_eq!(opcode, OpCode::Display(Some((0, 0, 0))));
 
         emu.execute_opcode(&opcode);
     }
@@ -907,6 +962,59 @@ mod tests {
     }
 
     #[test]
+    fn test_opcode_display() {
+        let mut emu = setup();
+
+        // first,, we clear the screen
+        emu.screen.fill(true);
+
+        emu.ram[0] = 0x00;
+        emu.ram[1] = 0xE0;
+
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::Display(None));
+
+        emu.execute_opcode(&opcode);
+        assert!(emu.screen.iter().all(|&x| !x));
+
+        // now we draw a sprite
+        emu.set_register_val(0, 0);
+        emu.set_register_val(1, 0);
+        emu.set_register_val(0xF, 0);
+
+        emu.set_program_counter(0x0);
+
+        emu.i_register = 0x0;
+        emu.ram[0] = 0xD0;
+        emu.ram[1] = 0x15;
+
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::Display(Some((0, 1, 5))));
+    }
+
+    #[test]
+    fn test_opcode_bcd() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 123);
+
+        emu.ram[0] = 0xF0;
+        emu.ram[1] = 0x33;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::Bcd(0));
+
+        emu.execute_opcode(&opcode);
+
+        let i_reg = emu.i_register as usize;
+
+        assert_eq!(emu.ram[i_reg], 1);
+        assert_eq!(emu.ram[i_reg + 1], 2);
+        assert_eq!(emu.ram[i_reg + 2], 3);
+    }
+
+    #[test]
     fn test_op_code() {
         let mut emu = setup();
 
@@ -914,12 +1022,11 @@ mod tests {
             0x60, 0x01, // 0x6001 // set register 0 to 1
             0x81, 0x00, // 0x8100 // set register 1 to the val of register 0
             0x70, 0x02, // 0x7002 // add 2 to register 0
-            0x90,
-            0x10, // 0x9010 // skip next instruction if register 0 is not equal to register 1
+            0x90, 0x10, // 0x9010 // skip next instruction if reg 0 is neq to reg 1
             0x00, 0x1E, // 0x00EE // this should be 'call' which is deprecated <- else panic
             0x80, 0x14, // 0x8014 // increment register 0 by register 1
             0x6e, 0xff, // 0x6F00 // set register 0xF to 255
-            0x7e, 0x0, // 0x7F01 // add 1 to register 0xF
+            0x7e, 0x00, // 0x7F01 // add 1 to register 0xF
             0x8e, 0x14, // 0x8E01 // set register 0xE to 1
         ];
 
