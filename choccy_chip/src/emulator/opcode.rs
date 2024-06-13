@@ -26,8 +26,7 @@ pub(crate) enum OpCode {
     RandomOp((RegisterID, Constant)),
     KeyOpSkip(Case, RegisterID),
     KeyOpWait(RegisterID), // TODO: Implement this
-    // Timer
-    // Sound
+    Timer((RegisterID, Case)),
     // Display
     // BCD
     Unknown,
@@ -116,7 +115,20 @@ impl From<u16> for OpCode {
                 let reg_id = u8::try_from(reg_id).expect("Invalid register number");
                 OpCode::KeyOpWait(reg_id)
             }
-
+            (0xF, reg_id, 1, 5 | 8) => {
+                let args = (
+                    u8::try_from(reg_id).expect("Invalid register number"),
+                    u8::try_from(digits.3).expect("Invalid case"),
+                );
+                OpCode::Timer(args)
+            }
+            (0xF, reg_id, 0, 7) => {
+                let args = (
+                    u8::try_from(reg_id).expect("Invalid register number"),
+                    u8::try_from(digits.3).expect("Invalid case"),
+                );
+                OpCode::Timer(args)
+            }
             (0xF, reg_id, 1 | 2 | 5 | 6, 0xE | 9 | 5) => {
                 let reg_id = u8::try_from(reg_id).expect("Invalid register number");
 
@@ -171,6 +183,7 @@ impl Emu {
             OpCode::MemoryOp(args) => self.handle_memory_op(*args),
             OpCode::KeyOpSkip(case, reg_id) => self.handle_keyop_skip(*case, *reg_id),
             OpCode::KeyOpWait(reg_id) => todo!(),
+            OpCode::Timer(args) => self.handle_timer(*args),
             OpCode::RandomOp(args) => self.handle_random_op(*args),
             OpCode::Unknown => unreachable!(),
         }
@@ -397,6 +410,18 @@ impl Emu {
     // TODO: Implement this
     fn handle_keyop_wait(&mut self, reg_id: u8) {
         todo!()
+    }
+
+    /// Handle opcodes related to the sound and delay timers.
+    /// # Arguments
+    /// - `reg_id`: The register to get or set.
+    fn handle_timer(&mut self, (register_id, case): (RegisterID, Case)) {
+        match case {
+            7 => self.set_register_val(register_id, self.get_delay_timer()),
+            5 => self.set_delay_timer(self.get_register_val(register_id)),
+            8 => self.set_sound_timer(self.get_register_val(register_id)),
+            _ => unreachable!(),
+        };
     }
 }
 
@@ -887,6 +912,15 @@ mod tests {
 
         assert_eq!(emu.psuedo_registers.program_counter, 4);
     }
+
+    // #[test]
+    // fn test_set_delay_timer() {}
+
+    // #[test]
+    // fn test_sound_timer() {}
+
+    // #[test]
+    // fn test_sound_delay_timer() {}
 
     #[test]
     fn test_opcode_rand() {

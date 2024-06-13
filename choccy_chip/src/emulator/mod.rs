@@ -156,6 +156,27 @@ impl Emu {
         let sp = self.stack_pointer();
         self.stack[sp as usize]
     }
+
+    /// Gets the value of the delay timer register.
+    fn get_delay_timer(&self) -> u8 {
+        self.special_registers.delay_timer
+    }
+
+    /// Sets the value of the delay timer register.
+    ///
+    /// # Arguments
+    /// * `val`: the value to set the delay timer to.
+    fn set_delay_timer(&mut self, val: u8) {
+        self.special_registers.delay_timer = val;
+    }
+
+    /// Sets the value of the sound timer register.
+    ///
+    /// # Arguments
+    /// * `val`: the value to set the delay timer to.
+    fn set_sound_timer(&mut self, val: u8) {
+        self.special_registers.sound_timer = val;
+    }
 }
 
 #[cfg(test)]
