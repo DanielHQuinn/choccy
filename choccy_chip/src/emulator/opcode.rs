@@ -170,7 +170,7 @@ impl Emu {
             OpCode::IOp(address) => self.handle_io(*address), // NOTE: technically a memory control instruction
             OpCode::MemoryOp(args) => self.handle_memory_op(*args),
             OpCode::KeyOpSkip(case, reg_id) => self.handle_keyop_skip(*case, *reg_id),
-            OpCode::KeyOpWait(reg_id) => todo!(),
+            OpCode::KeyOpWait(reg_id) => self.handle_keyop_wait(*reg_id),
             OpCode::RandomOp(args) => self.handle_random_op(*args),
             OpCode::Unknown => unreachable!(),
         }
@@ -394,9 +394,25 @@ impl Emu {
         }
     }
 
-    // TODO: Implement this
+    /// Handle a keyop wait operation
+    /// Waits for a key press and stores the key in the given register.
+    /// #Arguments
+    /// - `reg_id`: The register to store the key in.
+    /// #Notes
+    /// - This is a blocking operation.
     fn handle_keyop_wait(&mut self, reg_id: u8) {
-        todo!()
+        let mut pressed = false;
+        for i in 0..self.keys.len() {
+            if self.keys[i] {
+                self.set_register_val(reg_id, u8::try_from(i).expect("Invalid key"));
+                pressed = true;
+                break;
+            }
+        }
+        if !pressed {
+            // Redo opcode
+            self.psuedo_registers.program_counter -= 2;
+        }
     }
 }
 
@@ -974,5 +990,23 @@ mod tests {
         assert_eq!(emu.get_register_val(0xe), 0);
         assert_eq!(emu.program_counter(), 18);
         assert_eq!(emu.get_register_val(0xf), 1); // now f is 1 since we overflowed
+    }
+
+    #[test]
+    fn test_opcode_keyop_wait() {
+        let mut emu = setup();
+
+        emu.keys[0] = true;
+
+        emu.ram[0] = 0xF0;
+        emu.ram[1] = 0x0A;
+
+        let opcode = emu.fetch_opcode();
+
+        assert_eq!(opcode, OpCode::KeyOpWait(0));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.get_register_val(0), 0);
     }
 }
