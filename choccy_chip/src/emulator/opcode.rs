@@ -400,6 +400,7 @@ impl Emu {
     /// - `reg_id`: The register to store the key in.
     /// #Notes
     /// - This is a blocking operation.
+    /// - If multiple keys are pressed, the minimum is chosen.
     fn handle_keyop_wait(&mut self, reg_id: u8) {
         let mut pressed = false;
         for i in 0..self.keys.len() {
