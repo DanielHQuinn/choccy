@@ -170,6 +170,11 @@ impl Emu {
         self.special_registers.delay_timer = val;
     }
 
+    /// Gets the value of the sound timer register.
+    fn get_sound_timer(&self) -> u8 {
+        self.special_registers.sound_timer
+    }
+
     /// Sets the value of the sound timer register.
     ///
     /// # Arguments

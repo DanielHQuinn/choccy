@@ -913,14 +913,56 @@ mod tests {
         assert_eq!(emu.psuedo_registers.program_counter, 4);
     }
 
-    // #[test]
-    // fn test_set_delay_timer() {}
+    #[test]
+    fn test_set_delay_timer() {
+        let mut emu = setup();
 
-    // #[test]
-    // fn test_sound_timer() {}
+        emu.set_register_val(0, 0x1);
 
-    // #[test]
-    // fn test_sound_delay_timer() {}
+        emu.ram[0] = 0xF0;
+        emu.ram[1] = 0x15;
+
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::Timer((0, 5)));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.get_register_val(0), emu.get_delay_timer());
+    }
+
+    #[test]
+    fn test_sound_timer() {
+        let mut emu = setup();
+
+        emu.set_register_val(0, 0x1);
+
+        emu.ram[0] = 0xF0;
+        emu.ram[1] = 0x18;
+
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::Timer((0, 8)));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.get_register_val(0), emu.get_sound_timer());
+    }
+
+    #[test]
+    fn test_sound_delay_timer() {
+        let mut emu = setup();
+
+        emu.set_delay_timer(0x1);
+
+        emu.ram[0] = 0xF0;
+        emu.ram[1] = 0x07;
+
+        let opcode = emu.fetch_opcode();
+        assert_eq!(opcode, OpCode::Timer((0, 7)));
+
+        emu.execute_opcode(&opcode);
+
+        assert_eq!(emu.get_register_val(0), emu.get_delay_timer());
+    }
 
     #[test]
     fn test_opcode_rand() {
