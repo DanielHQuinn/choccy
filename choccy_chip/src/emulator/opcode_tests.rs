@@ -1,5 +1,6 @@
 use super::emulator::Emu;
 use super::opcode::OpCode;
+use super::opcode::OpCodeError;
 
 fn setup() -> Emu {
     let mut emu = Emu::new();
@@ -15,10 +16,13 @@ fn test_opcode_nop() {
 
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::Nop);
+
+    let error = emu.execute_opcode(&opcode).unwrap_err();
+    assert_eq!(error, OpCodeError::InvalidOpCode);
+
 }
 
 #[test]
-#[should_panic = "DEPRECATED!"]
 fn test_opcode_call() {
     let mut emu = setup();
 
@@ -29,7 +33,8 @@ fn test_opcode_call() {
 
     assert_eq!(opcode, OpCode::Call(0x234));
 
-    emu.execute_opcode(&opcode);
+    let error = emu.execute_opcode(&opcode).unwrap_err();
+    assert_eq!(error, OpCodeError::DeprecatedOpCode);
 }
 
 #[test]
@@ -45,7 +50,7 @@ fn test_opcode_return() {
 
     assert_eq!(opcode, OpCode::Return);
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.psuedo_registers.program_counter, 0x200);
 }
@@ -61,7 +66,7 @@ fn test_opcode_flow_jump() {
 
     assert_eq!(opcode, OpCode::Flow(1, 0x234));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.psuedo_registers.program_counter, 0x234);
 }
@@ -77,7 +82,7 @@ fn test_opcode_flow_call() {
 
     assert_eq!(opcode, OpCode::Flow(2, 0x345));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.psuedo_registers.program_counter, 0x345);
     let sp = emu.stack_pointer();
@@ -98,7 +103,7 @@ fn test_opcode_flow_jump_v0() {
 
     assert_eq!(opcode, OpCode::Flow(11, 0x345));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.psuedo_registers.program_counter, 0x357);
 }
@@ -116,7 +121,7 @@ fn test_opcode_skip_equals() {
 
     assert_eq!(opcode, OpCode::SkipEquals((3, 0, 0x12)));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.psuedo_registers.program_counter, 4);
 }
@@ -134,7 +139,7 @@ fn test_opcode_skip_not_equals() {
 
     assert_eq!(opcode, OpCode::SkipEquals((4, 0, 0x34)));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.psuedo_registers.program_counter, 4);
 }
@@ -152,7 +157,7 @@ fn test_opcode_skip_register_equals() {
 
     assert_eq!(opcode, OpCode::SkipRegEquals((5, 0, 1)));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.psuedo_registers.program_counter, 4);
 }
@@ -171,7 +176,7 @@ fn test_opcode_skip_register_not_equals() {
 
     assert_eq!(opcode, OpCode::SkipRegEquals((9, 0, 1)));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.psuedo_registers.program_counter, 4);
 }
@@ -184,7 +189,7 @@ fn test_opcode_set_const() {
     emu.ram[1] = 0x34;
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::Constant((6, 0, 0x34)));
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert_eq!(emu.get_register_val(0), 0x34);
 }
 
@@ -196,7 +201,7 @@ fn test_opcode_add_const() {
     emu.ram[1] = 0x34;
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::Constant((7, 0, 0x34)));
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert_eq!(emu.get_register_val(0), 0x46);
 }
 
@@ -210,7 +215,7 @@ fn test_opcode_bit_op0() {
     emu.ram[1] = 0x10;
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::BitOp((0, 1, 0)));
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert_eq!(emu.get_register_val(0), 0x34);
 }
 
@@ -223,7 +228,7 @@ fn test_opcode_bit_op1() {
     emu.ram[1] = 0x11;
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::BitOp((0, 1, 1)));
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert_eq!(emu.get_register_val(0), 0x36);
 }
 
@@ -236,7 +241,7 @@ fn test_opcode_bit_op2() {
     emu.ram[1] = 0x12;
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::BitOp((0, 1, 2)));
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert_eq!(emu.get_register_val(0), 0x12);
 }
 
@@ -249,7 +254,7 @@ fn test_opcode_bit_op3() {
     emu.ram[1] = 0x13;
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::BitOp((0, 1, 3)));
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert_eq!(emu.get_register_val(0), 0x26);
 }
 
@@ -262,7 +267,7 @@ fn test_opcode_bit_op4() {
     emu.ram[1] = 0x14;
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::BitOp((0, 1, 4)));
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert_eq!(emu.get_register_val(0), 0x46);
 }
 
@@ -275,7 +280,7 @@ fn test_opcode_bit_op5() {
     emu.ram[1] = 0x15;
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::BitOp((0, 1, 5)));
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert_eq!(emu.get_register_val(0), 0x10);
 }
 
@@ -288,7 +293,7 @@ fn test_opcode_bit_op6() {
     emu.ram[1] = 0x16;
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::BitOp((0, 1, 6)));
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert_eq!(emu.get_register_val(0), 0x09);
 }
 
@@ -301,7 +306,7 @@ fn test_opcode_bit_op7() {
     emu.ram[1] = 0x17;
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::BitOp((0, 1, 7)));
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert_eq!(emu.get_register_val(0), 0x22);
 }
 
@@ -314,7 +319,7 @@ fn test_opcode_bit_ope() {
     emu.ram[1] = 0x1E;
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::BitOp((0, 1, 0xE)));
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert_eq!(emu.get_register_val(0), 0x24);
 }
 
@@ -329,7 +334,7 @@ fn test_opcode_iop() {
 
     assert_eq!(opcode, OpCode::IOp(0x234));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.i_register, 0x234);
 }
@@ -348,7 +353,7 @@ fn test_opcode_memory_op1e() {
 
     assert_eq!(opcode, OpCode::MemoryOp((0, 0x1E)));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.i_register, 0x46);
 
@@ -356,7 +361,7 @@ fn test_opcode_memory_op1e() {
 
     emu.i_register = 0xFFFF; // this can be upto 0xFFFF
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.i_register, 0x0);
 }
@@ -374,7 +379,7 @@ fn test_opcode_memory_op29() {
 
     assert_eq!(opcode, OpCode::MemoryOp((0, 29))); // here 29 is just 29 and not 0x29
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.i_register, 0x5);
 }
@@ -397,7 +402,7 @@ fn test_opcode_memory_op55() {
 
     assert_eq!(opcode, OpCode::MemoryOp((3, 55))); // here 55 is just 55 and not 0x55
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     // now, the following are in memory
     assert_eq!(emu.ram[0x34], 0x1);
@@ -424,7 +429,7 @@ fn test_opcode_memory_op65() {
 
     assert_eq!(opcode, OpCode::MemoryOp((3, 65))); // here 65 is just 65 and not 0x65
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.get_register_val(0), 0x1);
     assert_eq!(emu.get_register_val(1), 0x2);
@@ -446,7 +451,7 @@ fn test_opcode_keyop_skip_equals() {
 
     assert_eq!(opcode, OpCode::KeyOpSkip(0x9E, 0));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.psuedo_registers.program_counter, 4);
 }
@@ -465,7 +470,7 @@ fn test_opcode_keyop_skip_not_equals() {
 
     assert_eq!(opcode, OpCode::KeyOpSkip(0xA1, 0));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.psuedo_registers.program_counter, 4);
 }
@@ -482,7 +487,7 @@ fn test_set_delay_timer() {
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::Timer((0, 5)));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.get_register_val(0), emu.get_delay_timer());
 }
@@ -499,7 +504,7 @@ fn test_sound_timer() {
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::Timer((0, 8)));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.get_register_val(0), emu.get_sound_timer());
 }
@@ -516,7 +521,7 @@ fn test_sound_delay_timer() {
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::Timer((0, 7)));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.get_register_val(0), emu.get_delay_timer());
 }
@@ -532,7 +537,7 @@ fn test_opcode_rand() {
 
     assert_eq!(opcode, OpCode::RandomOp((0, 0x12)));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     let register_val = emu.get_register_val(0);
 
@@ -552,7 +557,7 @@ fn test_opcode_display() {
     let opcode = emu.fetch_opcode();
     assert_eq!(opcode, OpCode::Display(None));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
     assert!(emu.screen.iter().all(|&x| !x));
 
     // now we draw a sprite
@@ -583,7 +588,7 @@ fn test_opcode_bcd() {
 
     assert_eq!(opcode, OpCode::Bcd(0));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     let i_reg = emu.i_register as usize;
 
@@ -612,50 +617,50 @@ fn test_op_code() {
 
     let first_op = emu.fetch_opcode();
     assert_eq!(first_op, OpCode::Constant((6, 0, 1)));
-    emu.execute_opcode(&first_op);
+    let _ = emu.execute_opcode(&first_op);
     assert_eq!(emu.get_register_val(0), 1);
     assert_eq!(emu.program_counter(), 2);
 
     let second_op = emu.fetch_opcode();
     assert_eq!(second_op, OpCode::BitOp((1, 0, 0)));
-    emu.execute_opcode(&second_op);
+    let _ = emu.execute_opcode(&second_op);
     assert_eq!(emu.get_register_val(1), 1);
     assert_eq!(emu.program_counter(), 4);
 
     let third_op = emu.fetch_opcode();
     assert_eq!(third_op, OpCode::Constant((7, 0, 2)));
-    emu.execute_opcode(&third_op);
+    let _ = emu.execute_opcode(&third_op);
     assert_eq!(emu.get_register_val(0), 3);
     assert_eq!(emu.program_counter(), 6);
 
     let fourth_op = emu.fetch_opcode();
     assert_eq!(fourth_op, OpCode::SkipRegEquals((9, 0, 1)));
-    emu.execute_opcode(&fourth_op);
+    let _ = emu.execute_opcode(&fourth_op);
     assert_eq!(emu.program_counter(), 10); // cause we skip to the next instruction
 
     let fifth_op = emu.fetch_opcode();
     assert_eq!(fifth_op, OpCode::BitOp((0, 1, 4)));
-    emu.execute_opcode(&fifth_op);
+    let _ = emu.execute_opcode(&fifth_op);
     assert_eq!(emu.get_register_val(0), 4);
     assert_eq!(emu.program_counter(), 12);
     assert_eq!(emu.get_register_val(0xf), 0);
 
     let sixth_op = emu.fetch_opcode();
     assert_eq!(sixth_op, OpCode::Constant((6, 0xe, 0xff)));
-    emu.execute_opcode(&sixth_op);
+    let _ = emu.execute_opcode(&sixth_op);
     assert_eq!(emu.get_register_val(0xe), 0xff);
     assert_eq!(emu.program_counter(), 14);
 
     let seventh_op = emu.fetch_opcode();
     assert_eq!(seventh_op, OpCode::Constant((7, 0xe, 0)));
-    emu.execute_opcode(&seventh_op);
+    let _ = emu.execute_opcode(&seventh_op);
     assert_eq!(emu.get_register_val(0xe), 0xff);
     assert_eq!(emu.program_counter(), 16);
     assert_eq!(emu.get_register_val(0xf), 0); // here f is 0
 
     let eighth_op = emu.fetch_opcode();
     assert_eq!(eighth_op, OpCode::BitOp((14, 1, 4)));
-    emu.execute_opcode(&eighth_op);
+    let _ = emu.execute_opcode(&eighth_op);
     assert_eq!(emu.get_register_val(0xe), 0);
     assert_eq!(emu.program_counter(), 18);
     assert_eq!(emu.get_register_val(0xf), 1); // now f is 1 since we overflowed
@@ -674,7 +679,23 @@ fn test_opcode_keyop_wait() {
 
     assert_eq!(opcode, OpCode::KeyOpWait(0));
 
-    emu.execute_opcode(&opcode);
+    let _ = emu.execute_opcode(&opcode);
 
     assert_eq!(emu.get_register_val(0), 0);
+}
+
+#[test]
+fn wrong_opcode() {
+    let mut emu = setup();
+
+    emu.ram[0] = 0xff;
+    emu.ram[1] = 0xff;
+
+    let opcode = emu.fetch_opcode();
+
+    assert_eq!(opcode, OpCode::Unknown);
+
+    let error = emu.execute_opcode(&opcode).unwrap_err();
+
+    assert_eq!(error, OpCodeError::UnknownOpCode);
 }
