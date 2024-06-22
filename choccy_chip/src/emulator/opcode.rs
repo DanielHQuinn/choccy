@@ -1,11 +1,37 @@
 //! This module contains the `OpCode` enum which represents the different opcodes that the CHIP-8 emulator can execute.
 //! Additionally, it contains the `OpCodeError` enum which represents the different errors that can occur when executing an opcode.
 //! Finally, it implments methods for the `OpCode` enum.
+use core::fmt;
+use std::fmt::Display;
+
 use super::emulator::Emu;
 type Address = u16; // an address
 type Case = u8; // represents a number that can be used in a switch statement
 type Constant = u8; // a 8 bit constant
 type RegisterID = u8; // a 4 bit register number
+
+/// The `OpCodeError` enum represents the different errors that can occur when executing an opcode.
+#[derive(Debug, PartialEq)]
+pub enum OpCodeError {
+    /// The opcode is invalid.
+    InvalidOpCode,
+    /// The opcode is deprecated.
+    DeprecatedOpCode,
+    /// Some other error occurred.
+    UnknownOpCode,
+}
+
+impl Display for OpCodeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OpCodeError::InvalidOpCode => write!(f, "Invalid opcode"),
+            OpCodeError::DeprecatedOpCode => write!(f, "Deprecated opcode"),
+            OpCodeError::UnknownOpCode => write!(f, "Unknown opcode"),
+        }
+    }
+}
+
+impl std::error::Error for OpCodeError {}
 
 /// The `OpCode` enum represents the different opcodes that the CHIP-8 emulator can execute.
 /// There are 35 different opcodes in total.
@@ -15,11 +41,11 @@ pub enum OpCode {
     /// The `Nop` opcode does nothing.
     Nop,
     /// The `Call` opcode calls a subroutine at the given address, but it is deprecated.
-    Call(Address),                                   // TODO: This is deprecated
+    Call(Address), // TODO: This is deprecated
     /// The `Display` opcode is used to draw sprites on the screen or clear the screen.
     Display(Option<(Constant, Constant, Constant)>),
     /// A flow control instruction that returns from a subroutine.
-    Return,                                          // NOTE: technically a flow control instruction
+    Return, // NOTE: technically a flow control instruction
     /// A flow control instruction
     Flow(Case, Address),
     /// A conditional instruction that skips the next instruction if the value of a register is equal to a constant.
@@ -122,7 +148,7 @@ impl From<u16> for OpCode {
                 let case = match (digits.2, digits.3) {
                     (9, 0xE) => 0x9E, // Ex9E
                     (0xA, 1) => 0xA1, // ExA1
-                    _ => unreachable!(),
+                    _ => return OpCode::Unknown,
                 };
 
                 OpCode::KeyOpSkip(case, reg_id)
@@ -146,7 +172,7 @@ impl From<u16> for OpCode {
                     (2, 9) => 29,        // Fx29
                     (5, 5) => 55,        // Fx55
                     (6, 5) => 65,        // Fx65
-                    _ => unreachable!(), // TODO: handle this error
+                    _ => return OpCode::Unknown,
                 };
 
                 OpCode::MemoryOp((reg_id, case))
@@ -182,24 +208,42 @@ impl Emu {
     /// # Arguments
     ///
     /// - `OpCode`: The `OpCode` to execute.
-    pub(crate) fn execute_opcode(&mut self, opcode: &OpCode) {
+    pub(crate) fn execute_opcode(&mut self, opcode: &OpCode) -> Result<(), OpCodeError> {
         match opcode {
-            OpCode::Nop => {}
+            OpCode::Nop => Err(OpCodeError::InvalidOpCode),
             OpCode::SkipEquals(args) | OpCode::SkipRegEquals(args) => self.handle_cond(*args),
             OpCode::Constant(args) => self.handle_const(*args),
-            OpCode::Call(_) => panic!("DEPRECATED!"), // TODO: deprecated! error handle later on
-            OpCode::Display(to_draw) => self.handle_display(*to_draw),
-            OpCode::Return => self.handle_return(), // NOTE: technically a flow instruction
+            OpCode::Call(_) => Err(OpCodeError::DeprecatedOpCode),
+            OpCode::Display(to_draw) => {
+                self.handle_display(*to_draw);
+                Ok(())
+            }
+            OpCode::Return => {
+                self.handle_return();
+                Ok(())
+            } // NOTE: technically a flow instruction
             OpCode::Flow(case, address) => self.handle_flow(*case, *address),
             OpCode::BitOp(args) => self.handle_bit_op(*args),
-            OpCode::IOp(address) => self.handle_io(*address), // NOTE: technically a memory control instruction
+            OpCode::IOp(address) => {
+                self.handle_io(*address);
+                Ok(())
+            } // NOTE: technically a memory control instruction
             OpCode::MemoryOp(args) => self.handle_memory_op(*args),
             OpCode::KeyOpSkip(case, reg_id) => self.handle_keyop_skip(*case, *reg_id),
-            OpCode::KeyOpWait(reg_id) => self.handle_keyop_wait(*reg_id),
+            OpCode::KeyOpWait(reg_id) => {
+                self.handle_keyop_wait(*reg_id);
+                Ok(())
+            }
             OpCode::Timer(args) => self.handle_timer(*args),
-            OpCode::RandomOp(args) => self.handle_random_op(*args),
-            OpCode::Bcd(reg_id) => self.handle_bcd(*reg_id),
-            OpCode::Unknown => unreachable!(),
+            OpCode::RandomOp(args) => {
+                self.handle_random_op(*args);
+                Ok(())
+            }
+            OpCode::Bcd(reg_id) => {
+                self.handle_bcd(*reg_id);
+                Ok(())
+            }
+            OpCode::Unknown => Err(OpCodeError::UnknownOpCode),
         }
     }
 
@@ -243,11 +287,10 @@ impl Emu {
                         }
                     }
                 }
-
-                self.set_register_val(0xF, collision.into());
+                self.set_register_val(0xF, u8::from(collision));
             }
             None => self.screen.fill(false),
-        }
+        };
     }
 
     #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
@@ -303,7 +346,10 @@ impl Emu {
     ///     (in hexadecimal) are represented by a 4x5 font.
     /// - 55: Stores V0 to VX in memory starting at address I. With an offset increment of 1
     /// - 65: Fills V0 to VX with values from memory starting at address I. With an offset increment of 1
-    fn handle_memory_op(&mut self, (register_id, case): (RegisterID, Case)) {
+    fn handle_memory_op(
+        &mut self,
+        (register_id, case): (RegisterID, Case),
+    ) -> Result<(), OpCodeError> {
         match case {
             0x1E => {
                 let register_val = u16::from(self.get_register_val(register_id));
@@ -326,8 +372,9 @@ impl Emu {
                     self.set_register_val(curr_reg, val);
                 }
             }
-            _ => unreachable!(), // TODO: handle this error
-        }
+            _ => return Err(OpCodeError::InvalidOpCode),
+        };
+        Ok(())
     }
 
     #[allow(clippy::similar_names)]
@@ -339,7 +386,10 @@ impl Emu {
     /// - `case`: The case to switch on.
     /// # Cases
     /// - TODO
-    fn handle_bit_op(&mut self, (register_x, register_y, case): (RegisterID, RegisterID, Case)) {
+    fn handle_bit_op(
+        &mut self,
+        (register_x, register_y, case): (RegisterID, RegisterID, Case),
+    ) -> Result<(), OpCodeError> {
         let register_x_val = self.get_register_val(register_x);
         let register_y_val = self.get_register_val(register_y);
 
@@ -391,8 +441,9 @@ impl Emu {
                 self.set_register_val(0xF, (register_x_val >> 7) & 0x1);
                 self.set_register_val(register_x, register_x_val << 1);
             }
-            _ => unreachable!(),
-        }
+            _ => return Err(OpCodeError::InvalidOpCode),
+        };
+        Ok(())
     }
 
     /// Handles the `Cond` opcode.
@@ -400,18 +451,22 @@ impl Emu {
     /// # Arguments
     /// - `register`: The register to check.
     /// - `constant` | `register`: The constant or register to check against.
-    fn handle_cond(&mut self, (case, register, constant): (Case, RegisterID, u8)) {
+    fn handle_cond(
+        &mut self,
+        (case, register, constant): (Case, RegisterID, u8),
+    ) -> Result<(), OpCodeError> {
         let register_val = self.get_register_val(register);
         let condition_met = match case {
             3 => register_val == constant,
             4 => register_val != constant,
             5 => register_val == self.get_register_val(constant),
             9 => register_val != self.get_register_val(constant),
-            _ => unreachable!(),
+            _ => return Err(OpCodeError::InvalidOpCode),
         };
         if condition_met {
             self.psuedo_registers.program_counter += 2;
-        }
+        };
+        Ok(())
     }
 
     /// Handles the `Const` opcode.
@@ -419,7 +474,10 @@ impl Emu {
     /// # Arguments
     /// - `register`: The register to check.
     /// - `constant` The constant set or increment the register's value by
-    fn handle_const(&mut self, (case, register, constant): (Case, RegisterID, u8)) {
+    fn handle_const(
+        &mut self,
+        (case, register, constant): (Case, RegisterID, u8),
+    ) -> Result<(), OpCodeError> {
         match case {
             6 => {
                 self.set_register_val(register, constant);
@@ -429,8 +487,9 @@ impl Emu {
                 let check = constant.wrapping_add(register_val); // TODO: make sure this is correct
                 self.set_register_val(register, check);
             }
-            _ => unreachable!(),
+            _ => return Err(OpCodeError::InvalidOpCode),
         };
+        Ok(())
     }
 
     /// Handle a return instruction from a subroutine.
@@ -452,20 +511,25 @@ impl Emu {
     /// - 1: Jump (GOTO) to the address given.
     /// - 2: Call subroutine at the address given.
     /// - B or 11: Jumps to the address nnn plus V0.
-    fn handle_flow(&mut self, case: Case, address: Address) {
+    fn handle_flow(&mut self, case: Case, address: Address) -> Result<(), OpCodeError> {
         match case {
             //  The interpreter sets the program counter to nnn.
-            1 => self.set_program_counter(address),
+            1 => {
+                self.set_program_counter(address);
+                Ok(())
+            }
             //  The interpreter increments the stack pointer, then puts the current PC on the top of the stack. The PC is then set to nnn.
             2 => {
                 self.push_stack(self.program_counter());
                 self.set_program_counter(address); // what now? KINDA confused
+                Ok(())
             }
             11 => {
                 let v0 = u16::from(self.get_register_val(0));
                 self.set_program_counter(address + v0);
+                Ok(())
             }
-            _ => unreachable!(),
+            _ => Err(OpCodeError::InvalidOpCode),
         }
     }
 
@@ -477,17 +541,18 @@ impl Emu {
     /// # Cases
     /// - 0x9E: Skips the next instruction if the key stored in register X is pressed.
     /// - 0xA1: Skips the next instruction if the key stored in register X is not pressed.
-    fn handle_keyop_skip(&mut self, case: u8, reg_id: u8) {
+    fn handle_keyop_skip(&mut self, case: u8, reg_id: u8) -> Result<(), OpCodeError> {
         let key = self.get_register_val(reg_id);
         let key_state = self.keys[key as usize];
         let skip = match case {
             0x9E => key_state,
             0xA1 => !key_state,
-            _ => unreachable!(),
+            _ => return Err(OpCodeError::InvalidOpCode),
         };
         if skip {
             self.psuedo_registers.program_counter += 2;
         }
+        Ok(())
     }
 
     /// Handle a keyop wait operation
@@ -516,12 +581,13 @@ impl Emu {
     /// Handle opcodes related to the sound and delay timers.
     /// # Arguments
     /// - `reg_id`: The register to get or set.
-    fn handle_timer(&mut self, (register_id, case): (RegisterID, Case)) {
+    fn handle_timer(&mut self, (register_id, case): (RegisterID, Case)) -> Result<(), OpCodeError> {
         match case {
             7 => self.set_register_val(register_id, self.get_delay_timer()),
             5 => self.set_delay_timer(self.get_register_val(register_id)),
             8 => self.set_sound_timer(self.get_register_val(register_id)),
-            _ => unreachable!(),
+            _ => return Err(OpCodeError::InvalidOpCode),
         };
+        Ok(())
     }
 }
