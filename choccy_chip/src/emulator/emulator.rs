@@ -158,6 +158,21 @@ impl Emu {
     pub(crate) fn set_sound_timer(&mut self, val: u8) {
         self.special_registers.sound_timer = val;
     }
+
+    /// Loads a rom into ram.
+    ///
+    /// # Arguments
+    /// * `start`: The address in ram to store a copy of the rom at.
+    /// * `rom_bytes`: The rom to load into ram.
+    pub fn load_rom(&mut self, start: u16, rom_bytes: &[u8]) {
+        //TODO: Should error handling for the rom happen outside or inside of here?
+        //This function assumes that rom is correct size, so ROM len + 0x200 < 4096
+        //TODO: Should starting address be x200?
+
+        let start_idx = start as usize;
+        let end_idx = start_idx + rom_bytes.len();
+        self.ram[start_idx..end_idx].copy_from_slice(rom_bytes);
+    }
 }
 
 #[cfg(test)]
@@ -201,5 +216,17 @@ mod tests {
 
         assert_eq!(emu.pop_stack(), 0x200); // stack pointer is now 0
         assert_eq!(emu.stack_pointer(), 0); // stack pointer is now 0
+    }
+    #[test]
+    fn test_load_rom() {
+        let mut emu = Emu::new();
+        let start_address = 0x200;
+        let rom_bytes = vec![0x00, 0xE0, 0xA2, 0x1E, 0x60, 0x00, 0x61, 0x00];
+        emu.load_rom(start_address, &rom_bytes);
+
+        // Verify that the rom is loaded correctly into RAM
+        for (i, &byte) in rom_bytes.iter().enumerate() {
+            assert_eq!(emu.ram[start_address as usize + i], byte);
+        }
     }
 }
