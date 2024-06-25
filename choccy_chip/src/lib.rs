@@ -2,9 +2,7 @@
 #![warn(clippy::pedantic)]
 //! Choccy Chip is a CHIP-8 emulator written in Rust.
 
-/// prelude
 pub mod prelude;
-/// Emulator API
 pub mod emulator;
 // /// Input API
 // pub mod input;

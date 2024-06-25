@@ -1,8 +1,6 @@
 [workspace]
 members = [
-    "choccy_chip" # <- this is the library
-    # "choccy_wasm",
-    # "choccy_gui",
-    # "choccy_cli",
+    "choccy_chip",
+    "choccy_tui"
 ]
 resolver = "2"
