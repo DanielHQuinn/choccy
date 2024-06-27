@@ -1,6 +1,6 @@
 #[cfg(feature = "sound")]
 /// This module contains the sound struct used to play the audio for the Chip-8 emulator.
-pub mod Audio {
+pub mod audio {
     use std::time::Duration;
     use std::fmt;
     use rodio::{OutputStreamHandle, OutputStream, Sink};
