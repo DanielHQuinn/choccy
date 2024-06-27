@@ -1,8 +1,10 @@
 //! The Emu struct is used to emulate the CHIP-8 CPU.
 use super::{
-    registers, sound, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET, SPRITE_SET_SIZE,
+    registers, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET, SPRITE_SET_SIZE,
     STACK_SIZE,
 };
+#[cfg(feature = "sound")]
+use super::sound;
 
 #[derive(Debug)]
 /// The Emu struct is used to emulate the CHIP-8 CPU.
@@ -26,8 +28,9 @@ pub struct Emu {
     pub(crate) keys: [bool; NUM_KEYS],
     /// The screen is used to store the state of the CHIP-8 screen.
     pub(crate) screen: [bool; SCREEN_WIDTH * SCREEN_HEIGHT],
+    #[cfg(feature = "sound")]
     /// The sound struct is used to play audio in the CHIP-8 emulator.
-    pub(crate) sound: sound::Sound,
+    pub(crate) sound: sound::Audio::Audio,
 }
 
 impl Emu {
@@ -62,7 +65,8 @@ impl Emu {
             stack: [0; STACK_SIZE],
             keys: [false; NUM_KEYS],
             screen: [false; SCREEN_WIDTH * SCREEN_HEIGHT],
-            sound: sound::Sound::new(),
+            #[cfg(feature = "sound")]
+            sound: sound::Audio::Audio::new(),
         };
 
         // fill the first 80 bytes of memory with the character set
@@ -170,6 +174,7 @@ impl Emu {
         }
 
         if self.special_registers.sound_timer > 0 {
+            #[cfg(feature = "sound")]
             self.sound.play();
             self.special_registers.sound_timer -= 1;
         }

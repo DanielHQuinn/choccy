@@ -6,3 +6,8 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 rodio = "0.18.1"
+
+[features]
+default = ["sound"]
+
+sound = []
