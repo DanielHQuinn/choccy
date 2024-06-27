@@ -1,3 +1,4 @@
+/// This module contains the sound struct used to play the audio for the Chip-8 emulator.
 use std::time::Duration;
 use std::fmt;
 use rodio::{OutputStreamHandle, OutputStream, Sink};
@@ -28,6 +29,7 @@ impl Sound {
 
     /// Plays the sound.
     pub fn play(&self) {
+        // Play a 440Hz sine wave for 0.25 seconds at 20% volume. 440 Hz is the standard tuning frequency.
         let source = SineWave::new(440.0).take_duration(Duration::from_secs_f32(0.25)).amplify(0.20);
         self.sink.append(source);
         self.sink.play();
