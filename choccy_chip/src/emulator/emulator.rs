@@ -1,7 +1,7 @@
 //! The Emu struct is used to emulate the CHIP-8 CPU.
 use super::{
-    registers, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET, SPRITE_SET_SIZE,
-    STACK_SIZE,
+    registers, rom::ValidatedRomBytes, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET,
+    SPRITE_SET_SIZE, STACK_SIZE,
 };
 
 #[derive(Debug)]
@@ -164,10 +164,8 @@ impl Emu {
     /// # Arguments
     /// * `start`: The address in ram to store a copy of the rom at.
     /// * `rom_bytes`: The rom to load into ram.
-    pub fn load_rom(&mut self, start: u16, rom_bytes: &[u8]) {
-        //TODO: Should error handling for the rom happen outside or inside of here?
+    pub fn load_rom(&mut self, start: u16, rom_bytes: &ValidatedRomBytes) {
         //This function assumes that rom is correct size, so ROM len + 0x200 < 4096
-        //TODO: Should starting address be x200?
 
         let start_idx = start as usize;
         let end_idx = start_idx + rom_bytes.len();
