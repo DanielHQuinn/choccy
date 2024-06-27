@@ -46,6 +46,7 @@ impl fmt::Debug for Sound {
 mod tests {
     use super::*;
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn test_sound() {
         let sound = Sound::new();

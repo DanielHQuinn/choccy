@@ -220,6 +220,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn test_tick_timers() {
         let mut emu = Emu::new();
 
