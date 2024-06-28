@@ -1,13 +1,12 @@
-// use choccy_chip::prelude::*;
-// use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
-use std::io::Result;
-
+use color_eyre::Result;
 mod app;
+mod errors;
 mod tui;
 
 fn main() -> Result<()> {
+    errors::install_hooks()?; // error handling
     let mut terminal = tui::init()?;
-    let app_result = app::App::default().run(&mut terminal);
+    app::App::default().run(&mut terminal)?;
     tui::restore()?;
     Ok(())
 }
