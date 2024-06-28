@@ -168,10 +168,10 @@ impl From<u16> for OpCode {
                 let reg_id = u8::try_from(reg_id).expect("Invalid register number");
 
                 let case = match (digits.2, digits.3) {
-                    (1, 0xE) => 0x1E,    // Fx1E
-                    (2, 9) => 29,        // Fx29
-                    (5, 5) => 55,        // Fx55
-                    (6, 5) => 65,        // Fx65
+                    (1, 0xE) => 0x1E, // Fx1E
+                    (2, 9) => 29,     // Fx29
+                    (5, 5) => 55,     // Fx55
+                    (6, 5) => 65,     // Fx65
                     _ => return OpCode::Unknown,
                 };
 
@@ -210,7 +210,7 @@ impl Emu {
     /// - `OpCode`: The `OpCode` to execute.
     pub(crate) fn execute_opcode(&mut self, opcode: &OpCode) -> Result<(), OpCodeError> {
         match opcode {
-            OpCode::Nop => Err(OpCodeError::InvalidOpCode),
+            OpCode::Nop => Err(OpCodeError::InvalidOpCode), // TODO: should we sanitize addresses?
             OpCode::SkipEquals(args) | OpCode::SkipRegEquals(args) => self.handle_cond(*args),
             OpCode::Constant(args) => self.handle_const(*args),
             OpCode::Call(_) => Err(OpCodeError::DeprecatedOpCode),

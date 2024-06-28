@@ -1,7 +1,5 @@
-//! This is the prelude module.
-//!
-//! The prelude module contains common imports and re-exports them for convenience.
-//! This module is meant to be glob imported in the root of the crate.
+//! The prelude module contains common imports and re-exports them for
+//! convenience. This module is meant to be glob imported in the root of the crate.
 //!
 //! Usage:
 //! ```
