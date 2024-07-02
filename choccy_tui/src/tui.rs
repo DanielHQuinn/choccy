@@ -1,5 +1,5 @@
 use std::io::{self, stdout, Stdout};
-use crossterm::{execute, terminal::*};
+use crossterm::{execute, terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode}};
 use ratatui::prelude::*;
 
 /// A type alias for the terminal type used in this application
