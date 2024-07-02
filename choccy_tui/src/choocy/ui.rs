@@ -30,26 +30,7 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1] // Return the middle chunk
 }
 
-#[allow(clippy::too_many_lines)]
-pub fn ui(f: &mut Frame<'_>, app: &App) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Min(1),
-            Constraint::Length(3),
-        ])
-        .split(f.size());
-
-    let title_block = Block::default()
-        .borders(Borders::ALL)
-        .style(Style::default());
-
-    let title = Paragraph::new(Text::styled("Choocy", Style::default().fg(Color::Green)))
-        .block(title_block);
-
-    f.render_widget(title, chunks[0]);
-
+fn render_main_content(f: &mut Frame<'_>, app: &App, area: Rect) {
     // main block
     match app.state {
         EmulateState::Off => {
@@ -63,7 +44,7 @@ pub fn ui(f: &mut Frame<'_>, app: &App) {
             ))
             .block(info_block);
 
-            f.render_widget(info, chunks[1]);
+            f.render_widget(info, area);
         }
         EmulateState::Running => {
             let running_block = Block::default()
@@ -71,9 +52,13 @@ pub fn ui(f: &mut Frame<'_>, app: &App) {
                 .borders(Borders::ALL)
                 .style(Style::default().bg(Color::Green));
 
-            let area = centered_rect(60, 25, f.size());
             f.render_widget(running_block, area);
 
+            // two parts
+            //
+            //  - figure out how to map our lib (display) -> tui
+            //  - figure out how to the fetech and execute loop -> tui
+            //
             // now we need to figure out the logic needed to render the emulator screen
         }
         EmulateState::Paused => {
@@ -89,34 +74,54 @@ pub fn ui(f: &mut Frame<'_>, app: &App) {
                 .block(popup)
                 .wrap(Wrap { trim: false });
 
-            let area = centered_rect(60, 25, f.size());
+            let area = centered_rect(60, 50, f.size());
             f.render_widget(pause_block, area);
 
             // TODO tell emulator to pause
         }
+        // I assume we should map libraries errors here, and also if the emulator itself has an error
         EmulateState::Error => {
             let error_block = Block::default()
                 .borders(Borders::ALL)
                 .style(Style::default());
 
-            let error = Paragraph::new(Text::styled(
-                "IDK mate",
-                Style::default().fg(Color::Red),
-            ))
-            .block(error_block);
+            let error = Paragraph::new(Text::styled("IDK mate", Style::default().fg(Color::Red)))
+                .block(error_block);
 
-            f.render_widget(error, chunks[1]);
+            f.render_widget(error, area);
         }
     }
+}
 
+pub fn ui(f: &mut Frame<'_>, app: &App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // header
+            Constraint::Min(1),    // main content
+            Constraint::Length(3), // footer
+        ])
+        .split(f.size());
+
+    let title_block = Block::default()
+        .borders(Borders::ALL)
+        .style(Style::default());
+
+    let title = Paragraph::new(Text::styled("Choocy", Style::default().fg(Color::Green)))
+        .block(title_block);
+
+    f.render_widget(title, chunks[0]);
+
+    render_main_content(f, app, chunks[1]);
+
+    // footer
     let current_navigation_text = vec![
         // The first half of the text
         match app.current_screen {
-            CurrentScreen::Home => Span::styled("Normal Mode", Style::default().fg(Color::Green)),
-            CurrentScreen::Emulate => {
-                Span::styled("Emulate Mode", Style::default().fg(Color::Yellow))
-            }
+            CurrentScreen::Home => Span::styled("Home", Style::default().fg(Color::Green)),
+            CurrentScreen::Emulate => Span::styled("Emulate", Style::default().fg(Color::Yellow)),
             CurrentScreen::Pause => Span::styled("Pause", Style::default().fg(Color::LightRed)),
+            _ => todo!(),
         }
         .clone(),
         // A white divider bar to separate the two sections
@@ -145,8 +150,9 @@ pub fn ui(f: &mut Frame<'_>, app: &App) {
                 // TODO: should we add a load, save, or configure option here?
                 Span::styled("(q) to quit / (r) to run", Style::default().fg(Color::Red))
             }
-            CurrentScreen::Emulate => todo!(),
             CurrentScreen::Pause => Span::styled("(q) to quit", Style::default().fg(Color::Red)),
+            CurrentScreen::Emulate => todo!(),
+            _ => todo!(),
         }
     };
 
