@@ -30,7 +30,7 @@ pub struct Emu {
     pub(crate) screen: [bool; SCREEN_WIDTH * SCREEN_HEIGHT],
     /// The sound struct is used to play audio in the CHIP-8 emulator.
     #[cfg(feature = "sound")]
-    pub(crate) sound: sound::audio::Audio,
+    pub(crate) sound: sound::Audio,
 }
 
 impl Emu {
@@ -66,7 +66,7 @@ impl Emu {
             keys: [false; NUM_KEYS],
             screen: [false; SCREEN_WIDTH * SCREEN_HEIGHT],
             #[cfg(feature = "sound")]
-            sound: sound::audio::Audio::new(),
+            sound: sound::Audio::new(),
         };
 
         // fill the first 80 bytes of memory with the character set

@@ -8,6 +8,7 @@ pub mod opcode;
 /// The registers module contains [`GeneralRegisters`], [`PsuedoRegisters`], and [`SpecialRegisters`] structs and their methods.
 pub mod registers;
 /// The sound module contains the [`Audio`] struct and its methods.
+#[cfg(feature = "sound")]
 pub mod sound;
 
 /// width of the CHIP-8 screen
