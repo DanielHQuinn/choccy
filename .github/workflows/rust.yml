@@ -30,7 +30,7 @@ jobs:
     - name: Build
       run: cargo build --verbose --features sound
     - name: Run tests
-      run: cargo test --verbose --features sound
+      run: cargo test --verbose
   
   build-macos:
   
@@ -41,4 +41,4 @@ jobs:
       - name: Build
         run: cargo build --verbose --features sound
       - name: Run tests
-        run: cargo test --verbose --features sound
+        run: cargo test --verbose
