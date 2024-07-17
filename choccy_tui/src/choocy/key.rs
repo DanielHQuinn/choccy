@@ -15,9 +15,15 @@ impl App {
             _ => Ok(()),
         }
     }
-
+    
     pub fn handle_key_event(&mut self, key_event:KeyEvent) -> Result<()> {
-        todo!()
+        if let KeyCode::Char(c) = key_event.code {
+            let key_str = c.to_string();
+            if let Some(&chip8_key) = self.emu.keymapping.get_key_mapping(&key_str) {
+                self.emu.press_key(chip8_key);
+            }
+        }
+        Ok(())
     }
 
 
