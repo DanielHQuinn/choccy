@@ -1,7 +1,7 @@
 //! The Emu struct is used to emulate the CHIP-8 CPU.
 use super::{
-    registers, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET, SPRITE_SET_SIZE,
-    STACK_SIZE,
+    registers, rom_parser::ValidRom, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET,
+    SPRITE_SET_SIZE, STACK_SIZE,
 };
 
 #[derive(Debug)]
@@ -157,6 +157,16 @@ impl Emu {
     /// * `val`: the value to set the delay timer to.
     pub(crate) fn set_sound_timer(&mut self, val: u8) {
         self.special_registers.sound_timer = val;
+    }
+
+    /// Loads a rom into ram.
+    ///
+    /// # Arguments
+    /// * `rom`: The rom to load into ram.
+    pub(crate) fn load_rom(&mut self, rom: &ValidRom) {
+        let start_idx = Self::START_ADDRESS as usize;
+        let end_idx: usize = start_idx + rom.get_data().len();
+        self.ram[start_idx..end_idx].copy_from_slice(rom.get_data());
     }
 }
 
