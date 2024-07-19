@@ -1,12 +1,8 @@
 //! The Emu struct is used to emulate the CHIP-8 CPU.
-use std::collections::HashMap;
-
 use super::{
     registers, input, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET, SPRITE_SET_SIZE,
     STACK_SIZE,
 };
-#[cfg(feature = "sound")]
-use super::sound;
 
 #[derive(Debug)]
 /// The Emu struct is used to emulate the CHIP-8 CPU.
@@ -32,10 +28,13 @@ pub struct Emu {
     pub(crate) screen: [bool; SCREEN_WIDTH * SCREEN_HEIGHT],
     /// The input struct is used to map keyboard inputs to CHIP-8 keys.
     pub(crate) keymapping: input::Input,
-    /// The sound struct is used to play audio in the CHIP-8 emulator.
-    #[cfg(feature = "sound")]
-    pub(crate) sound: sound::audio::Audio,
 }
+
+// pub enum EmuError {
+//     RomLoadError,
+//     OpCodeError,
+//     OtherError,
+// }
 
 impl Emu {
     /// Where the program counter starts.
@@ -70,8 +69,6 @@ impl Emu {
             keys: [false; NUM_KEYS],
             screen: [false; SCREEN_WIDTH * SCREEN_HEIGHT],
             keymapping: input::Input::default(),
-            #[cfg(feature = "sound")]
-            sound: sound::audio::Audio::new(),
         };
 
         // fill the first 80 bytes of memory with the character set
@@ -80,6 +77,12 @@ impl Emu {
 
         emu
     }
+
+    //
+    // pub fn cycle() -> Result<EmuError> {
+    //     // 1. fetch_opcode
+    //     // 2. execute_opcode
+    // }
 
     /// Sets the start address of the emulator.
     pub fn set_start_address(&mut self, address: u16) {
@@ -179,8 +182,8 @@ impl Emu {
         }
 
         if self.special_registers.sound_timer > 0 {
-            #[cfg(feature = "sound")]
-            self.sound.play();
+            // #[cfg(feature = "sound")]
+            // self.sound.play();
             self.special_registers.sound_timer -= 1;
         }
     }

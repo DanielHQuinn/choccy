@@ -26,10 +26,6 @@ pub enum EmulateState {
     Error,
 }
 
-// loop {
-//  emu.cycle();
-// }
-
 #[derive(Debug, Default)]
 pub struct EmulateOpts {
     pub sound: bool,
@@ -43,9 +39,13 @@ pub struct EmulateOpts {
 pub enum CurrentScreen {
     #[default]
     Home, // press r to start, q to quit
-    // Rom,  // maybe we want this, to load a roam from a path. Not sure
+    Rom,  // maybe we want this, to load a roam from a path. Not sure
     Emulate, // Emulate the device
-    Pause,
-    // Remap,
     Remap,
 }
+
+// danny needs to do rom,
+// -f rom_path,
+// - you need to 1. use something like clap to parse the args
+// - and also, write the logic to load the rom
+// document what the hrz is because you looked through other emulators
