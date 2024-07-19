@@ -19,7 +19,7 @@ impl App {
     pub fn handle_key_event(&mut self, key_event:KeyEvent) -> Result<()> {
         if let KeyCode::Char(c) = key_event.code {
             let key_str = c.to_string();
-            if let Some(&chip8_key) = self.emu.keymapping.get_key_mapping(&key_str) {
+            if let Some(&chip8_key) = self.emu.get_key_mapping(&key_str) {
                 self.emu.press_key(chip8_key);
             }
         }

@@ -31,7 +31,7 @@ pub struct Emu {
     /// The screen is used to store the state of the CHIP-8 screen.
     pub(crate) screen: [bool; SCREEN_WIDTH * SCREEN_HEIGHT],
     /// The input struct is used to map keyboard inputs to CHIP-8 keys.
-    pub keymapping: input::Input,
+    pub(crate) keymapping: input::Input,
     /// The sound struct is used to play audio in the CHIP-8 emulator.
     #[cfg(feature = "sound")]
     pub(crate) sound: sound::audio::Audio,
@@ -186,13 +186,19 @@ impl Emu {
     }
 
     /// Changes the state of a key to pressed.
-    pub fn press_key(&mut self, key: u8) {
-        self.keys[key as usize] = true;
+    pub fn press_key(&mut self, key: usize) {
+        self.keys[key] = true;
     }
 
     /// Changes the state of a key to unpressed.
-    pub fn release_key(&mut self, key: u8) {
-        self.keys[key as usize] = false;
+    pub fn release_key(&mut self, key: usize) {
+        self.keys[key] = false;
+    }
+
+    #[must_use]
+    /// Returns the mapped Chip-8 key for a given keyboard input.
+    pub fn get_key_mapping(&self, input: &str) -> Option<&usize> {
+        self.keymapping.get_key_mapping(input)
     }
 }
 
