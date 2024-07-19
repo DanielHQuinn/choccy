@@ -120,7 +120,6 @@ pub fn ui(f: &mut Frame<'_>, app: &App) {
         match app.current_screen {
             CurrentScreen::Home => Span::styled("Home", Style::default().fg(Color::Green)),
             CurrentScreen::Emulate => Span::styled("Emulate", Style::default().fg(Color::Yellow)),
-            CurrentScreen::Pause => Span::styled("Pause", Style::default().fg(Color::LightRed)),
             _ => todo!(),
         }
         .clone(),
@@ -150,7 +149,6 @@ pub fn ui(f: &mut Frame<'_>, app: &App) {
                 // TODO: should we add a load, save, or configure option here?
                 Span::styled("(q) to quit / (r) to run", Style::default().fg(Color::Red))
             }
-            CurrentScreen::Pause => Span::styled("(q) to quit", Style::default().fg(Color::Red)),
             CurrentScreen::Emulate => todo!(),
             _ => todo!(),
         }

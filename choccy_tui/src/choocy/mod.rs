@@ -17,7 +17,7 @@ pub struct App {
     quit: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub enum EmulateState {
     #[default]
     Off, // home
