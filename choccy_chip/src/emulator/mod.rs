@@ -3,14 +3,14 @@
 #[allow(clippy::module_inception)]
 /// The emulator module contains the [`Emu`] struct and its methods.
 pub mod emulator;
+/// The input module contains the [`Input`] struct and its methods.
+pub mod input;
 /// The opcode module contains the [`OpCode`] struct and its methods.
 pub mod opcode;
 /// The registers module contains [`GeneralRegisters`], [`PsuedoRegisters`], and [`SpecialRegisters`] structs and their methods.
 pub mod registers;
 /// The sound module contains the [`Audio`] struct and its methods.
 pub mod sound;
-/// The input module contains the [`Input`] struct and its methods.
-pub mod input;
 
 /// width of the CHIP-8 screen
 pub const SCREEN_WIDTH: usize = 64;
@@ -51,5 +51,7 @@ pub const SPRITE_SET: [u8; SPRITE_SET_SIZE] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 
+#[cfg(test)]
+mod integration_tests;
 #[cfg(test)]
 mod opcode_tests;
