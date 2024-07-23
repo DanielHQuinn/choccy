@@ -53,12 +53,13 @@ impl App {
         Ok(())
     }
 
-    pub fn new() -> Self {
+    pub fn new(rom_path: String) -> Self {
         Self {
             emu: Emu::new(),
             current_screen: CurrentScreen::Home,
             state: EmulateState::Off,
             opts: EmulateOpts::default(),
+            rom_path,
             quit: false,
         }
     }
