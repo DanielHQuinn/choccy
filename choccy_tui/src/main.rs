@@ -30,7 +30,10 @@ fn main() -> Result<()> {
 
     // everything is handled in the app module
     // edit this!
-    choocy::App::new(file_path).run(&mut terminal)?;
+    let mut app = choocy::App::new();
+    app.run(&mut terminal)?;
+    app.set_rom_path(file_path);
+
     tui::restore()?;
     Ok(())
 }

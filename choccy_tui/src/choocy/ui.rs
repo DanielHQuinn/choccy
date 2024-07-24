@@ -106,7 +106,6 @@ pub fn ui(f: &mut Frame<'_>, app: &App) {
     let title_block = Block::default()
         .borders(Borders::ALL)
         .style(Style::default());
-
     let title = Paragraph::new(Text::styled("Choocy", Style::default().fg(Color::Green)))
         .block(title_block);
 
