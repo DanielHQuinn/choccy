@@ -11,14 +11,28 @@ mod errors;
 /// The TUI module, where the `TUI` is initialized.
 mod tui;
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Path to the ROM file
+    #[arg(short, long, value_name = "FILE", default_value = "")]
+    file: String,
+}
+
 fn main() -> Result<()> {
     errors::install_hooks()?; // error handling
     let mut terminal = tui::init()?;
 
+    let args = Args::parse();
+    let file_path = args.file;
+
     // everything is handled in the app module
     // edit this!
-    choocy::App::new().run(&mut terminal)?;
-
+    let mut app = choocy::App::new();
+    app.run(&mut terminal)?;
+    app.set_rom_path(file_path);
 
     tui::restore()?;
     Ok(())

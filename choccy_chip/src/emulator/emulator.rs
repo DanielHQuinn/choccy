@@ -1,6 +1,8 @@
 //! The Emu struct is used to emulate the CHIP-8 CPU.
+use std::{error, io::Error};
+
 use super::{
-    registers, input, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET, SPRITE_SET_SIZE,
+    input, registers, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET, SPRITE_SET_SIZE,
     STACK_SIZE,
 };
 
@@ -83,6 +85,46 @@ impl Emu {
     //     // 1. fetch_opcode
     //     // 2. execute_opcode
     // }
+
+    /// Handles the given path and loads the ROM into memory.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to the ROM file.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is an issue with rom or if there is an issue with path.
+    pub fn handle_path(&mut self, path: &str) -> Result<(), String> {
+        let rom = std::fs::read(path);
+        match rom {
+            Ok(rom) => self.load_rom(&rom),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    /// Loads Vec of bytes representing a ROM into Ram.
+    ///
+    /// # Arguments
+    ///
+    /// * `rom` - The bytes to load into Ram.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is rom is too big or too small.
+    pub fn load_rom(&mut self, rom: &[u8]) -> Result<(), String> {
+        // handle if rom is too big or too small
+        if rom.len() > RAM_SIZE - Self::START_ADDRESS as usize {
+            return Err("ROM too big".to_string());
+        }
+        //handle if rom is too small ie smaller than 2 bytes
+        if rom.len() < 2 {
+            return Err("ROM too small".to_string());
+        }
+        // copy the rom into memory
+        self.ram[0x200..0x200 + rom.len()].copy_from_slice(rom);
+        Ok(())
+    }
 
     /// Sets the start address of the emulator.
     pub fn set_start_address(&mut self, address: u16) {

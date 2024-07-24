@@ -53,12 +53,22 @@ impl App {
         Ok(())
     }
 
+    /// Sets the value of the `rom_path`.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A string representing the path of the ROM file.
+    pub fn set_rom_path(&mut self, path: String) {
+        self.rom_path = path;
+    }
+
     pub fn new() -> Self {
         Self {
             emu: Emu::new(),
             current_screen: CurrentScreen::Home,
             state: EmulateState::Off,
             opts: EmulateOpts::default(),
+            rom_path: String::new(),
             quit: false,
         }
     }
