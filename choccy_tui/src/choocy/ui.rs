@@ -1,11 +1,14 @@
-use super::{App, CurrentScreen, EmulateState};
-use ratatui::layout::{Constraint, Direction, Layout};
+use super::{App, AppState, EmulateState};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Span, Text};
+use ratatui::widgets::canvas::{Canvas, Rectangle};
 use ratatui::widgets::Paragraph;
 use ratatui::widgets::{Block, Borders, Wrap};
 use ratatui::Frame;
 use ratatui::{layout::Rect, text::Line};
+
+const SCALE_FACTOR: f64 = 2.0;
 
 /// helper function to create a centered rect using up certain percentage of the available rect `r`
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
@@ -30,37 +33,56 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1] // Return the middle chunk
 }
 
-fn render_main_content(f: &mut Frame<'_>, app: &App, area: Rect) {
+fn render_home(f: &mut Frame<'_>, area: Rect) {
+    let home_block = Block::default()
+        .borders(Borders::ALL)
+        .style(Style::default());
+    let info = Paragraph::new(Text::styled(
+        "Choocy is a TUI app for CHIP 8.",
+        Style::default().fg(Color::Blue),
+    ))
+    .block(home_block)
+    .alignment(Alignment::Center);
+
+    f.render_widget(info, area);
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn render_screen(f: &mut Frame<'_>, app: &App, area: Rect) {
+    let (width, height) = app.emu.screen_size();
+    let screen = app.emu.screen();
+    let canvas = Canvas::default()
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Emulator Screen"),
+        )
+        .paint(|ctx| {
+            for y in 0..height {
+                for x in 0..width {
+                    if screen[y * width + x] {
+                        ctx.draw(&Rectangle {
+                            x: (x as f64) * SCALE_FACTOR,
+                            y: (y as f64) * SCALE_FACTOR,
+                            width: SCALE_FACTOR,
+                            height: SCALE_FACTOR,
+                            color: Color::White,
+                        });
+                    }
+                }
+            }
+        })
+        .x_bounds([0.0, (width as f64) * SCALE_FACTOR])
+        .y_bounds([0.0, (height as f64) * SCALE_FACTOR]);
+
+    f.render_widget(canvas, area);
+}
+
+fn render_emulator(f: &mut Frame<'_>, app: &App, area: Rect) {
     // main block
-    match app.state {
-        EmulateState::Off => {
-            let info_block = Block::default()
-                .borders(Borders::ALL)
-                .style(Style::default());
-
-            let info = Paragraph::new(Text::styled(
-                "Choocy is a TUI app for CHIP 8.",
-                Style::default().fg(Color::Blue),
-            ))
-            .block(info_block);
-
-            f.render_widget(info, area);
-        }
-        EmulateState::Running => {
-            let running_block = Block::default()
-                .title("Emulator Running")
-                .borders(Borders::ALL)
-                .style(Style::default().bg(Color::Green));
-
-            f.render_widget(running_block, area);
-
-            // two parts
-            //
-            //  - figure out how to map our lib (display) -> tui
-            //  - figure out how to the fetech and execute loop -> tui
-            //
-            // now we need to figure out the logic needed to render the emulator screen
-        }
+    match app.emu_state {
+        EmulateState::Off => render_home(f, area),
+        EmulateState::Running => render_screen(f, app, area),
         EmulateState::Paused => {
             let popup = Block::default()
                 .title("Pause")
@@ -80,6 +102,7 @@ fn render_main_content(f: &mut Frame<'_>, app: &App, area: Rect) {
             // TODO tell emulator to pause
         }
         // I assume we should map libraries errors here, and also if the emulator itself has an error
+        // this should be a current_screen
         EmulateState::Error => {
             let error_block = Block::default()
                 .borders(Borders::ALL)
@@ -108,26 +131,35 @@ pub fn ui(f: &mut Frame<'_>, app: &App) {
         .style(Style::default());
 
     let title = Paragraph::new(Text::styled("Choocy", Style::default().fg(Color::Green)))
-        .block(title_block);
+        .block(title_block)
+        .alignment(Alignment::Center);
 
     f.render_widget(title, chunks[0]);
 
-    render_main_content(f, app, chunks[1]);
+    match app.app_state {
+        AppState::Home => render_home(f, chunks[1]),
+        AppState::Rom => todo!(),
+        AppState::Emulate => render_emulator(f, app, chunks[1]),
+        AppState::Remap => todo!(),
+        AppState::Pause => todo!(), // only reachable from Emulate
+        AppState::Quit => todo!(),
+    }
 
     // footer
     let current_navigation_text = vec![
         // The first half of the text
-        match app.current_screen {
-            CurrentScreen::Home => Span::styled("Home", Style::default().fg(Color::Green)),
-            CurrentScreen::Emulate => Span::styled("Emulate", Style::default().fg(Color::Yellow)),
+        match app.app_state {
+            AppState::Home => Span::styled("Home", Style::default().fg(Color::Green)),
+            AppState::Rom => Span::styled("Rom", Style::default().fg(Color::Yellow)),
             _ => todo!(),
         }
+
         .clone(),
         // A white divider bar to separate the two sections
         Span::styled(" | ", Style::default().fg(Color::White)),
         // The final section of the text, with hints on whether the emulator is running or not
         {
-            match app.state {
+            match app.emu_state {
                 EmulateState::Off => {
                     Span::styled("Not Running", Style::default().fg(Color::DarkGray))
                 }
@@ -144,12 +176,12 @@ pub fn ui(f: &mut Frame<'_>, app: &App) {
         .block(Block::default().borders(Borders::ALL));
 
     let current_keys_hint = {
-        match app.current_screen {
-            CurrentScreen::Home => {
+        match app.app_state {
+            AppState::Home => {
                 // TODO: should we add a load, save, or configure option here?
                 Span::styled("(q) to quit / (r) to run", Style::default().fg(Color::Red))
             }
-            CurrentScreen::Emulate => todo!(),
+            AppState::Emulate => todo!(),
             _ => todo!(),
         }
     };

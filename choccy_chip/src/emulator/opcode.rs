@@ -268,7 +268,7 @@ impl Emu {
                 let i_reg = self.i_register as usize;
                 let x_val = u16::from(self.get_register_val(reg_x));
                 let y_val = u16::from(self.get_register_val(reg_y));
-                let (screen_width, screen_height) = Self::screen_size();
+                let (screen_width, screen_height) = self.screen_size();
 
                 let mut collision = false;
                 for row in 0..height.into() {
