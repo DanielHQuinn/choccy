@@ -83,23 +83,23 @@ impl App {
         Ok(())
     }
 
-    pub fn handle_emulate(&mut self) -> Result<()> {
-        match event::read()? {
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.handle_emulate_key_event(key_event, true)
-                    .wrap_err_with(|| format!("handling key event failed:\n {key_event:#?}"))
+    pub fn handle_emulate(&mut self) {
+        match event::read() {
+            Ok(Event::Key(key_event)) if key_event.kind == KeyEventKind::Press => {
+                self.handle_emulate_key_event(key_event, true);
+                    //.wrap_err_with(|| format!("handling key event failed:\n {key_event:#?}"))
             }
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Release => {
-                self.handle_emulate_key_event(key_event, false)
-                    .wrap_err_with(|| format!("handling key event failed:\n {key_event:#?}"))
+            Ok(Event::Key(key_event)) if key_event.kind == KeyEventKind::Release => {
+                self.handle_emulate_key_event(key_event, false);
+                    //.wrap_err_with(|| format!("handling key event failed:\n {key_event:#?}"))
             }
-            _ => Ok(()),
+            _ => {},
         }
     }
 
     /// Handles key events for the emulator screen.
     /// Ctrl + q will quit the emulator.
-    pub fn handle_emulate_key_event(&mut self, key_event: KeyEvent, state: bool) -> Result<()> {
+    pub fn handle_emulate_key_event(&mut self, key_event: KeyEvent, state: bool) {
         if let KeyCode::Char(c) = key_event.code {
             let key_str = c.to_string();
             match key_str.as_str() {
@@ -114,7 +114,6 @@ impl App {
                             self.emu.release_key(chip8_key);
                         }
                     }
-                    return Ok(());
                 }
                 _ => {
                     if let Some(&chip8_key) = self.emu.get_key_mapping(&key_str) {
@@ -124,12 +123,10 @@ impl App {
                             self.emu.release_key(chip8_key);
                         }
                     }
-                    return Ok(());
                 },
                 
             }
         }
-        Ok(())
     }
 
 
