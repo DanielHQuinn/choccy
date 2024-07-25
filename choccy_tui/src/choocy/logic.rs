@@ -29,7 +29,7 @@ impl App {
                     self.handle_remap().wrap_err("Failed to handle event")?;
                     // self.handle_remap().wrap_err("Failed to handle remap")?;
                 }
-                CurrentScreen::Home => self.handle_home().wrap_err("Failed to handle event")?, // 0. home screen
+                CurrentScreen::Home => self.handle_home(), // 0. home screen
                 // Options:
                 // 1. start emulator - s
                 // 2. quit tui - ctrl + q

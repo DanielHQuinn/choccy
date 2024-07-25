@@ -4,45 +4,42 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use super::{App, CurrentScreen, EmulateState};
 
 impl App {
-    pub fn handle_home(&mut self) -> Result<()> {
-        match event::read()? {
+    pub fn handle_home(&mut self) {
+        match event::read() {
             // it's important to check that the event is a key press event as
             // crossterm also emits key release and repeat events on Windows.
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => self
-                .handle_home_key_event(key_event)
-                .wrap_err_with(|| format!("handling key event failed:\n {key_event:#?}")),
+            Ok(Event::Key(key_event)) if key_event.kind == KeyEventKind::Press => self
+                .handle_home_key_event(key_event),
+                //.wrap_err_with(|| format!("handling key event failed:\n {key_event:#?}")),
             // _ => {emu.fetch(); emu.excute} // our library needs to tell us when we need an input
-            _ => Ok(()),
+            _ => {},
         }
     }
     
     /// Handles key events for the home screen.
-    pub fn handle_home_key_event(&mut self, key_event:KeyEvent) -> Result<()> {
+    pub fn handle_home_key_event(&mut self, key_event:KeyEvent) {
         if let KeyCode::Char(c) = key_event.code {
             let key_str = c.to_string();
             match key_str.as_str() {
                 "s" => {
+                    // match on rom: if none send to rom screen
                     self.current_screen = CurrentScreen::Emulate;
-                    return Ok(());
+                    self.state = EmulateState::Running;
                 }
                 "q" => {
                     if key_event.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
                         self.quit = true;
                     }
-                    return Ok(());
                 }
                 "r" => {
                     self.current_screen = CurrentScreen::Remap;
-                    return Ok(());
                 }
                 "l" => {
                     self.current_screen = CurrentScreen::Rom;
-                    return Ok(());
                 }
-                _ => return Ok(()),
+                _ => {}
             }
         }
-        Ok(())
     }
 
     pub fn handle_remap(&mut self) -> Result<()> {
