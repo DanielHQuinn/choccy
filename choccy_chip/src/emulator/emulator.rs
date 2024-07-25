@@ -1,6 +1,6 @@
 //! The Emu struct is used to emulate the CHIP-8 CPU.
 use super::{
-    registers, input, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET, SPRITE_SET_SIZE,
+    registers, input, input::InputError, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET, SPRITE_SET_SIZE,
     STACK_SIZE,
 };
 
@@ -202,6 +202,21 @@ impl Emu {
     /// Returns the mapped Chip-8 key for a given keyboard input.
     pub fn get_key_mapping(&self, input: &str) -> Option<&usize> {
         self.keymapping.get_key_mapping(input)
+    }
+    
+    /// Sets a new mapping for a keyboard input to a CHIP-8 key.
+    /// 
+    /// # Arguments
+    /// * `input`: the keyboard input to map.
+    /// * `key`: the CHIP-8 key to map to the input.
+    ///    
+    /// # Errors
+    /// Returns an error if the input is already mapped to a key.
+    pub fn set_key_mapping(&mut self, input: &str, key: usize) -> Result<(), InputError>{
+      match self.keymapping.set_key_mapping(input, key) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }   
     }
 }
 
