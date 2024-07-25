@@ -26,10 +26,19 @@ impl App {
                 // <c-q> to quit  or <blackslash>
                 CurrentScreen::Remap => {
                     // 1.remap
-                    todo!()
+                    self.handle_remap().wrap_err("Failed to handle event")?;
                     // self.handle_remap().wrap_err("Failed to handle remap")?;
                 }
-                CurrentScreen::Home => self.handle_event().wrap_err("Failed to handle event")?, // 0. home screen
+                CurrentScreen::Home => self.handle_home(), // 0. home screen
+                // Options:
+                // 1. start emulator - s
+                // 2. quit tui - ctrl + q
+                //       when emulating: pause and then ctrl + q again to quit
+                //       when remapping: return to home screen
+                // 3. remap keys - r
+                // 4. load rom - l
+
+
                 _ => todo!(), // CurrentScreen::Emulate => self.handle_emulate().wrap_err("Failed to handle emulate")?, // 3. emulator running
                               // CurrentScreen::Rom
             }
