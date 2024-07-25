@@ -1,7 +1,13 @@
 //! The Emu struct is used to emulate the CHIP-8 CPU.
+use core::fmt;
+use std::{
+    error::Error,
+    fmt::{Display, Formatter},
+};
+
 use super::{
-    registers, input, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH, SPRITE_SET, SPRITE_SET_SIZE,
-    STACK_SIZE,
+    input, opcode::OpCodeError, registers, NUM_KEYS, RAM_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH,
+    SPRITE_SET, SPRITE_SET_SIZE, STACK_SIZE,
 };
 
 #[derive(Debug)]
@@ -30,11 +36,34 @@ pub struct Emu {
     pub(crate) keymapping: input::Input,
 }
 
-// pub enum EmuError {
-//     RomLoadError,
-//     OpCodeError,
-//     OtherError,
-// }
+#[derive(Debug)]
+/// The `EmuError` enum is used to represent errors that can occur in the emulator
+pub enum EmuError {
+    /// Error loading ROM.
+    RomError,
+    /// Error with an `OpCode`.
+    OpCodeError(OpCodeError),
+    /// General error.
+    GeneralError,
+}
+
+impl Display for EmuError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            EmuError::RomError => write!(f, "Error loading ROM"),
+            EmuError::OpCodeError(e) => write!(f, "OpCodeError: {e}"),
+            EmuError::GeneralError => write!(f, "Other error"),
+        }
+    }
+}
+
+impl Error for EmuError {}
+
+impl Default for Emu {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Emu {
     /// Where the program counter starts.
@@ -44,7 +73,6 @@ impl Emu {
     const ETI_START_ADDRESS: u16 = 0x600;
 
     #[must_use]
-    #[allow(clippy::new_without_default)]
     /// Creates a new instance of the Emu struct.
     ///
     /// # Returns
@@ -78,11 +106,19 @@ impl Emu {
         emu
     }
 
-    //
-    // pub fn cycle() -> Result<EmuError> {
-    //     // 1. fetch_opcode
-    //     // 2. execute_opcode
-    // }
+    /// Performs one cycle of the CHIP-8 CPU.
+    /// This involves fetching an opcode, decoding it, and executing it.
+    ///
+    /// # Errors
+    /// Returns an error if there is an issue with the opcode.
+    pub fn cycle(&mut self) -> Result<(), EmuError> {
+        let opcode = self.fetch_opcode();
+
+        match self.execute_opcode(&opcode) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(EmuError::OpCodeError(e)),
+        }
+    }
 
     /// Sets the start address of the emulator.
     pub fn set_start_address(&mut self, address: u16) {
@@ -106,8 +142,14 @@ impl Emu {
 
     #[must_use]
     /// Returns the screen size.
-    pub fn screen_size() -> (usize, usize) {
+    pub fn screen_size(&self) -> (usize, usize) {
         (SCREEN_WIDTH, SCREEN_HEIGHT)
+    }
+
+    #[must_use]
+    /// Returns the screen as a slice.
+    pub fn screen(&self) -> &[bool] {
+        &self.screen
     }
 
     pub(crate) fn get_register_val(&self, register: u8) -> u8 {
